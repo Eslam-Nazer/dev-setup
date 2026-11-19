@@ -22,7 +22,7 @@
 
   Run:  powershell -NoProfile -ExecutionPolicy Bypass -File .\setup-dev-extensions.ps1
   Optional: -Target cursor|code|both  -Source phpstorm|vscode|builtin  -Yes (accept all defaults)
-            -MaxRetries 8  -SkipSettings
+            -MaxRetries 8  -SkipSettings  -Version
 #>
 [CmdletBinding()]
 param(
@@ -30,8 +30,13 @@ param(
     [ValidateSet('', 'phpstorm', 'vscode', 'builtin')][string]$Source = '',
     [int]$MaxRetries = 8,
     [switch]$SkipSettings,
-    [switch]$Yes
+    [switch]$Yes,
+    [switch]$Version
 )
+
+# Bumped by build/bump-version.ps1; must match the git tag (vX.Y.Z) on release.
+$ScriptVersion = '0.1.0'
+if ($Version) { Write-Output "setup-dev-extensions $ScriptVersion"; return }
 
 $ErrorActionPreference = 'Continue'
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
@@ -49,6 +54,8 @@ function Ok($m)   { Log "  [OK]   $m" 'Green' }
 function Info($m) { Log "  [..]   $m" 'Gray' }
 function Warn($m) { Log "  [WARN] $m" 'Yellow' }
 function Err($m)  { Log "  [FAIL] $m" 'Red' }
+
+Log "dev-setup / editor  v$ScriptVersion" 'Cyan'
 
 # ---------------------------------------------------------------------------
 # Questions

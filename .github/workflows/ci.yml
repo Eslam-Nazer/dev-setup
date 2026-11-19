@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse every PowerShell script
+        shell: pwsh
+        run: |
+          $failed = $false
+          Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object {
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$errors) | Out-Null
+            if ($errors) {
+              $failed = $true
+              $errors | ForEach-Object { Write-Host "::error file=$($_.Extent.File),line=$($_.Extent.StartLineNumber)::$($_.Message)" }
+            }
+          }
+          if ($failed) { exit 1 }
+
+      - name: Parse with Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $failed = $false
+          Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object {
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$errors) | Out-Null
+            if ($errors) { $failed = $true; $errors | ForEach-Object { Write-Host "$($_.Extent.File):$($_.Extent.StartLineNumber) $($_.Message)" } }
+          }
+          if ($failed) { exit 1 }
+
+      - name: Lint (PSScriptAnalyzer, errors only)
+        shell: pwsh
+        run: |
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
+          $issues = Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error
+          $issues | Format-Table -AutoSize
+          if ($issues) { exit 1 }
+
+      - name: Version flag works
+        shell: pwsh
+        run: |
+          Get-ChildItem -Directory | Where-Object { $_.Name -notin 'docs', 'build', '.github' } | ForEach-Object {
+            Get-ChildItem $_.FullName -Filter *.ps1 | ForEach-Object {
+              if (Select-String -Path $_.FullName -Pattern '\[switch\]\$Version' -Quiet) {
+                $out = & $_.FullName -Version
+                Write-Host "$($_.Name): $out"
+                if ($out -notmatch '\d+\.\d+\.\d+') { Write-Host "::error::$($_.Name) -Version printed '$out'"; exit 1 }
+              }
+            }
+          }

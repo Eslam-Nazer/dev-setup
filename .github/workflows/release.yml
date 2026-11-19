@@ -1,0 +1,91 @@
+name: Release
+
+# Push a tag like v0.2.0 (or v0.2.0-beta.1 for a pre-release) to publish a GitHub Release.
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check versions match the tag
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}".TrimStart('v')
+          $bad = @()
+          $found = 0
+          Get-ChildItem -Recurse -Filter *.ps1 | Where-Object { $_.FullName -notmatch '[\\/](build|\.github)[\\/]' } | ForEach-Object {
+            $m = Select-String -Path $_.FullName -Pattern "^\`$ScriptVersion\s*=\s*'([^']+)'" | Select-Object -First 1
+            if ($m) {
+              $found++
+              $v = $m.Matches[0].Groups[1].Value
+              if ($v -ne $tag) { $bad += "$($_.Name) says $v" }
+            }
+          }
+          if ($found -eq 0) { $bad += 'No $ScriptVersion found in any tool script' }
+          if (-not (Select-String -Path CHANGELOG.md -Pattern "^## \[$([regex]::Escape($tag))\]" -Quiet)) {
+            $bad += "CHANGELOG.md has no '## [$tag]' section"
+          }
+          if ($bad) { $bad | ForEach-Object { Write-Host "::error::$_" }; exit 1 }
+          Write-Host "All versions are $tag"
+
+      - name: Lint (PSScriptAnalyzer, errors only)
+        shell: pwsh
+        run: |
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
+          $issues = Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error
+          $issues | Format-Table -AutoSize
+          if ($issues) { exit 1 }
+
+      - name: Package tools
+        shell: pwsh
+        run: |
+          $v = "${{ github.ref_name }}"
+          New-Item -ItemType Directory -Force dist | Out-Null
+          # A tool = top-level folder that contains a .ps1 script
+          $tools = Get-ChildItem -Directory | Where-Object {
+            $_.Name -notin 'docs', 'build', '.github', 'dist' -and (Get-ChildItem $_.FullName -Filter *.ps1)
+          }
+          foreach ($t in $tools) {
+            $stage = "dist/stage/dev-setup-$($t.Name)"
+            New-Item -ItemType Directory -Force $stage | Out-Null
+            Copy-Item "$($t.FullName)/*" $stage -Recurse
+            if (Test-Path "docs/$($t.Name)") { Copy-Item "docs/$($t.Name)" "$stage/docs" -Recurse }
+            Copy-Item README.md, CHANGELOG.md $stage
+            if (Test-Path LICENSE) { Copy-Item LICENSE $stage }
+            Compress-Archive -Path "$stage/*" -DestinationPath "dist/dev-setup-$($t.Name)-$v.zip"
+            # Unversioned copies so .../releases/latest/download/<file> always works
+            Get-ChildItem $t.FullName -File | Where-Object { $_.Extension -in '.ps1', '.bat' } | Copy-Item -Destination dist/
+          }
+          Get-ChildItem dist -File | Format-Table Name, Length
+
+      - name: Release notes from CHANGELOG
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}".TrimStart('v')
+          $out = @(); $in = $false
+          foreach ($l in Get-Content CHANGELOG.md) {
+            if ($l -match '^## \[') {
+              if ($in) { break }
+              if ($l -match "^## \[$([regex]::Escape($tag))\]") { $in = $true; continue }
+            }
+            if ($in) { $out += $l }
+          }
+          ($out -join "`n").Trim() | Set-Content dist/notes.md -Encoding utf8
+
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $files = Get-ChildItem dist -File | Where-Object { $_.Extension -in '.zip', '.ps1', '.bat' } | ForEach-Object { $_.FullName }
+          $extra = @()
+          if ($tag -match '-') { $extra += '--prerelease' }
+          gh release create $tag @files --title "dev-setup $tag" --notes-file dist/notes.md @extra
