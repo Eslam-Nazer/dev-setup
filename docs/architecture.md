@@ -56,6 +56,10 @@ flowchart LR
 | Logs | `%LOCALAPPDATA%\dev-ext-installer\` (`env-*.log`, `install-*.log`). |
 | Network | Steps are retried (`-MaxRetries`) and the script waits for the internet to come back. |
 | Consent | Never install anything without asking first (unless `-Yes`). |
+| Check first | Detect what is already on the PC **before** downloading anything. |
+| Pick-any lists | `Ask-MultiChoice`: pick several with `1,3`, Enter for none, `-Yes` picks none. Every item is listed; installed ones show in green as `[installed]` and are skipped if picked. Used for optional, heavy things (editors, databases, GUI clients, DB extensions). |
+| Light on the machine | Optional heavy tools default to No; verify cheaply (files/services, not extra processes); keep only recent logs and backups. |
+| Logs housekeeping | Only the 10 newest logs per tool and the 5 newest settings backups are kept. |
 
 ## New machine, start to finish
 
