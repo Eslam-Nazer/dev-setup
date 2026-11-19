@@ -7,6 +7,8 @@ Write new entries under **[Unreleased]**; `build/bump-version.ps1` moves them in
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-19
+
 ### Added
 - `env/`: checks and installs dev tools (Herd / Laragon / official PHP, Composer, Git, Node.js, NestJS CLI, Docker) with winget, asking before each install
 - `env/`: choose the latest version or pick one from the list of available versions
