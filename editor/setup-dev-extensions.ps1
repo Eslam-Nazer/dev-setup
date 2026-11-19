@@ -24,6 +24,8 @@
   Optional: -Target cursor|code|both  -Source phpstorm|vscode|builtin  -Yes (accept all defaults)
             -MaxRetries 8  -SkipSettings  -SkipEnvCheck  -Version
 
+  It also asks whether to add a database extension (Database Client, SQLTools, MongoDB); pick any or none.
+
   Before installing, it checks that PHP and Node.js exist. If not, it offers to run
   env/setup-dev-env.ps1 (the dev-setup "env" tool) first, then continues.
 #>
@@ -93,6 +95,37 @@ function Ask-Choice([string]$Question, [string[]]$Options, [int]$Default = 1) {
         if ([int]::TryParse($a, [ref]$n) -and $n -ge 1 -and $n -le $Options.Count) { return $n }
     }
 }
+
+function Ask-MultiChoice([string]$Question, [string[]]$Options) {
+    # Returns the 0-based indexes picked; Enter (or -Yes) picks nothing
+    if ($Yes) { return @() }
+    Write-Host ''
+    Write-Host $Question -ForegroundColor Cyan
+    for ($i = 0; $i -lt $Options.Count; $i++) { Write-Host ("  {0}) {1}" -f ($i + 1), $Options[$i]) }
+    while ($true) {
+        $a = Read-Host 'Numbers separated by commas (e.g. 1,3), Enter for none'
+        if ($null -eq $a) { return @() }
+        $a = $a.Trim()
+        if (-not $a) { return @() }
+        $res = @(); $valid = $true
+        foreach ($n in ($a -split '[,\s]+' | Where-Object { $_ })) {
+            $k = 0
+            if ([int]::TryParse($n, [ref]$k) -and $k -ge 1 -and $k -le $Options.Count) { if ($res -notcontains ($k - 1)) { $res += ($k - 1) } }
+            else { $valid = $false }
+        }
+        if ($valid) { return $res }
+        Write-Host '  Please use numbers from the list.' -ForegroundColor Yellow
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Optional database extensions (you pick any or none at run time)
+# ---------------------------------------------------------------------------
+$DbExtensionChoices = @(
+    @{ Name = 'Database Client  (MySQL, MariaDB, PostgreSQL, SQLite, Redis, MongoDB in one panel)'; Ids = @('cweijan.vscode-database-client2') }
+    @{ Name = 'SQLTools         (+ PostgreSQL and MySQL/MariaDB drivers)'; Ids = @('mtxr.sqltools'); With = @('mtxr.sqltools-driver-pg', 'mtxr.sqltools-driver-mysql') }
+    @{ Name = 'MongoDB for VS Code'; Ids = @('mongodb.mongodb-vscode') }
+)
 
 # ---------------------------------------------------------------------------
 # Extension catalogue: each slot lists candidates in order of preference.
@@ -643,6 +676,22 @@ if (-not $SkipSettings) {
 }
 
 # ---------------------------------------------------------------------------
+# Database extension question (checked first: already-installed ones are marked)
+# ---------------------------------------------------------------------------
+$dbOpts = foreach ($c in $DbExtensionChoices) {
+    $have = $false
+    foreach ($t in $targets) { if (Test-ExtensionInstalled $Editors[$t].ExtDir $c.Ids[0]) { $have = $true } }
+    if ($have) { "$($c.Name)  [installed]" } else { $c.Name }
+}
+$dbPicked = @(Ask-MultiChoice 'Add a database extension to the editor? (pick any or none)' @($dbOpts))
+foreach ($i in $dbPicked) {
+    $c = $DbExtensionChoices[$i]
+    $label = ($c.Name -split '\s{2,}')[0]
+    $Catalog += @{ Name = "Database: $label"; Ids = $c.Ids }
+    foreach ($w in @($c.With)) { if ($w) { $Catalog += @{ Name = "Database: $w"; Ids = @($w) } } }
+}
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 $summary = @()
@@ -657,7 +706,7 @@ foreach ($t in $targets) {
     Info "CLI: $($ed.Cli)"
     Wait-ForInternet $ed.Host
 
-    $installed = @(& $ed.Cli --list-extensions 2>$null) | ForEach-Object { $_.Trim().ToLower() }
+    $installed = @(@(& $ed.Cli --list-extensions 2>$null) | ForEach-Object { $_.Trim().ToLower() })   # always an array, even with 0 or 1 extension
     $roles = @{}
 
     foreach ($slot in $Catalog) {

@@ -16,6 +16,7 @@ Write new entries under **[Unreleased]**; `build/bump-version.ps1` moves them in
 - `env/`: optional databases, pick any: PostgreSQL (choose the major), MySQL, MariaDB, Redis (Memurai Developer), MongoDB; official installers run interactively so you set the admin password yourself
 - `env/`: offers to switch database services to Manual start so they don't use RAM at boot
 - `env/`: optional DB GUI clients, pick any: DBeaver, HeidiSQL, pgAdmin, MySQL Workbench, MongoDB Compass, Redis Insight; installed ones are detected first and not offered
+- `editor/`: optional database extensions, pick any: Database Client, SQLTools (+ PostgreSQL/MySQL drivers), MongoDB for VS Code
 - MIT license
 
 ### Changed
@@ -26,6 +27,7 @@ Write new entries under **[Unreleased]**; `build/bump-version.ps1` moves them in
 - Logs: only the 10 newest per tool are kept; settings backups: only the 5 newest per file
 
 ### Fixed
+- `editor/`: "already installed" detection failed when 0 or 1 extension was installed before the run
 - Questions no longer loop forever when console input is closed; summary table prints in narrow / redirected consoles
 
 ## [0.1.0] - 2026-11-19

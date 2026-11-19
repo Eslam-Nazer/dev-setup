@@ -30,3 +30,11 @@
 | PhpStorm feel | Advanced New File `patbenatar.advanced-new-file` | `sleistner.vscode-fileutils` |
 | Theme | Poimandres `pmndrs.pmndrs` (when your scheme is poimandres and you say yes) | |
 | AI | Claude Code `anthropic.claude-code` | |
+
+### Optional (asked at run time)
+
+| Area | Extension |
+|---|---|
+| Database | Database Client `cweijan.vscode-database-client2` |
+| Database | SQLTools `mtxr.sqltools` + drivers `mtxr.sqltools-driver-pg`, `mtxr.sqltools-driver-mysql` |
+| Database | MongoDB for VS Code `mongodb.mongodb-vscode` |

@@ -71,3 +71,17 @@ To keep the editor light in Laravel / NestJS projects, the script adds these (yo
 | `gitlens.codeLens.enabled` | `false` | Fewer git calls while typing |
 
 The Docker extension is installed only when `docker` is available on the PC.
+
+## Database extensions
+
+Before installing, the script asks which database extension to add (pick any or none; `-Yes` picks none).
+Extensions already installed are marked `[installed]` and are skipped.
+
+| Choice | Extensions | Works with |
+|---|---|---|
+| Database Client | `cweijan.vscode-database-client2` | MySQL, MariaDB, PostgreSQL, SQLite, Redis, MongoDB in one panel |
+| SQLTools | `mtxr.sqltools` + `mtxr.sqltools-driver-pg` + `mtxr.sqltools-driver-mysql` | PostgreSQL, MySQL, MariaDB |
+| MongoDB for VS Code | `mongodb.mongodb-vscode` | MongoDB |
+
+To install the database servers and GUI clients themselves, use the env tool (`env/setup-dev-env.ps1`).
+Edit the list in `$DbExtensionChoices`.
