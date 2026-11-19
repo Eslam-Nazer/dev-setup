@@ -7,13 +7,23 @@ Scripts to set up a Windows dev machine for **Laravel + NestJS** (PHP / TypeScri
 
 | Tool | What it does |
 |---|---|
+| [`env/`](env/) | Checks and installs dev tools: Herd/Laragon/PHP, Composer, Git, Node.js, NestJS CLI, Docker |
 | [`editor/`](editor/) | One-click Cursor / VS Code setup with a PhpStorm feel |
+
+**New machine?** Run `env` first, then `editor`. (The editor tool offers to run `env` automatically if PHP or Node.js are missing.)
+
+Docs: [How this repo is organized](docs/architecture.md) | [Env usage](docs/env/usage.md) | [Editor usage](docs/editor/usage.md)
 
 ## Download
 
 **Newest version, one command** (PowerShell):
 
 ```powershell
+# env tool
+irm https://github.com/Eslam-Nazer/dev-setup/releases/latest/download/setup-dev-env.ps1 -OutFile setup-dev-env.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\setup-dev-env.ps1
+
+# editor tool
 irm https://github.com/Eslam-Nazer/dev-setup/releases/latest/download/setup-dev-extensions.ps1 -OutFile setup-dev-extensions.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\setup-dev-extensions.ps1
 ```
@@ -26,6 +36,19 @@ Check which version you have:
 ```powershell
 .\setup-dev-extensions.ps1 -Version
 ```
+
+---
+
+## Env tool (`env/`)
+
+Checks Herd / Laragon / PHP, Composer, Git, Node.js, NestJS CLI and Docker Desktop, and installs what is missing
+(with winget), asking before each install.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\env\setup-dev-env.ps1
+```
+
+Use `-CheckOnly` to only report. Full details: [docs/env/usage.md](docs/env/usage.md).
 
 ---
 
@@ -80,3 +103,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\editor\setup-dev-extension
 
 - [Changelog](CHANGELOG.md)
 - [How versions and releases work](docs/releasing.md): `.\build\bump-version.ps1 -Version X.Y.Z -Commit` then `git push` (the workflow tags and releases)
+
+---
+
+## License
+
+MIT, see [LICENSE](LICENSE).

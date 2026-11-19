@@ -22,7 +22,10 @@
 
   Run:  powershell -NoProfile -ExecutionPolicy Bypass -File .\setup-dev-extensions.ps1
   Optional: -Target cursor|code|both  -Source phpstorm|vscode|builtin  -Yes (accept all defaults)
-            -MaxRetries 8  -SkipSettings  -Version
+            -MaxRetries 8  -SkipSettings  -SkipEnvCheck  -Version
+
+  Before installing, it checks that PHP and Node.js exist. If not, it offers to run
+  env/setup-dev-env.ps1 (the dev-setup "env" tool) first, then continues.
 #>
 [CmdletBinding()]
 param(
@@ -31,6 +34,7 @@ param(
     [int]$MaxRetries = 8,
     [switch]$SkipSettings,
     [switch]$Yes,
+    [switch]$SkipEnvCheck,
     [switch]$Version
 )
 
@@ -64,7 +68,9 @@ function Ask-YesNo([string]$Question, [bool]$Default = $true) {
     if ($Yes) { return $Default }
     $hint = if ($Default) { '[Y/n]' } else { '[y/N]' }
     while ($true) {
-        $a = (Read-Host "$Question $hint").Trim().ToLower()
+        $a = Read-Host "$Question $hint"
+        if ($null -eq $a) { return $Default }   # no console input (piped / closed)
+        $a = $a.Trim().ToLower()
         if (-not $a) { return $Default }
         if ($a -in 'y', 'yes', '1') { return $true }
         if ($a -in 'n', 'no', '0')  { return $false }
@@ -76,7 +82,9 @@ function Ask-Choice([string]$Question, [string[]]$Options, [int]$Default = 1) {
     Write-Host $Question -ForegroundColor Cyan
     for ($i = 0; $i -lt $Options.Count; $i++) { Write-Host ("  {0}) {1}" -f ($i + 1), $Options[$i]) }
     while ($true) {
-        $a = (Read-Host "Choose 1-$($Options.Count) [default $Default]").Trim()
+        $a = Read-Host "Choose 1-$($Options.Count) [default $Default]"
+        if ($null -eq $a) { return $Default }
+        $a = $a.Trim()
         if (-not $a) { return $Default }
         $n = 0
         if ([int]::TryParse($a, [ref]$n) -and $n -ge 1 -and $n -le $Options.Count) { return $n }
@@ -503,6 +511,56 @@ if (-not $Target) {
 $targets = if ($Target -eq 'both') { @('cursor', 'code') } else { @($Target) }
 
 # ---------------------------------------------------------------------------
+# Dev tools check: offer to run the "env" tool when PHP or Node.js is missing
+# ---------------------------------------------------------------------------
+function Update-SessionPath {
+    $machine = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+    $user    = [Environment]::GetEnvironmentVariable('Path', 'User')
+    $env:Path = (@($machine, $user) | Where-Object { $_ }) -join ';'
+}
+
+function Find-EnvScript {
+    # 1) next to this script in a clone (editor/ -> ../env/), 2) same folder, 3) download the latest release
+    if ($PSScriptRoot) {
+        foreach ($p in @((Join-Path $PSScriptRoot '..\env\setup-dev-env.ps1'), (Join-Path $PSScriptRoot 'setup-dev-env.ps1'))) {
+            if (Test-Path $p) { return (Resolve-Path $p).Path }
+        }
+    }
+    $url = 'https://github.com/Eslam-Nazer/dev-setup/releases/latest/download/setup-dev-env.ps1'
+    $dest = Join-Path $env:TEMP 'setup-dev-env.ps1'
+    if (-not (Ask-YesNo "The env tool is not next to this script. Download it from the latest release?" $true)) { return $null }
+    try {
+        Invoke-WithRetry { Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing -TimeoutSec 60 -ErrorAction Stop } 'Download env tool' 'github.com'
+        return $dest
+    } catch {
+        Warn "Could not download $url"
+        return $null
+    }
+}
+
+if (-not $SkipEnvCheck) {
+    $missing = @()
+    if (-not (Get-Command php -ErrorAction SilentlyContinue))  { $missing += 'PHP (Herd / Laragon)' }
+    if (-not (Get-Command node -ErrorAction SilentlyContinue)) { $missing += 'Node.js' }
+    if ($missing.Count) {
+        Step 'Dev tools check'
+        Warn ("Missing: {0}. PHP and JS extensions need them to work." -f ($missing -join ', '))
+        if (Ask-YesNo 'Run the dev tools setup (env) first?' $true) {
+            $envScript = Find-EnvScript
+            if ($envScript) {
+                Info "Running $envScript"
+                & $envScript -Yes:$Yes -MaxRetries $MaxRetries
+                Update-SessionPath
+                if ($LASTEXITCODE -eq 0) { Ok 'Dev tools ready, continuing with the editor setup.' }
+                else { Warn 'Some dev tools are still missing; continuing with the editor setup anyway.' }
+            }
+        } else {
+            Info 'Skipped the dev tools check (run env\setup-dev-env.ps1 later, or use -SkipEnvCheck).'
+        }
+    }
+}
+
+# ---------------------------------------------------------------------------
 # Source question: where do the settings come from?
 # ---------------------------------------------------------------------------
 $Prof = $null
@@ -742,6 +800,6 @@ foreach ($t in $targets) {
 
 # ---------------------------------------------------------------------------
 Step 'Summary'
-$summary | Format-Table -AutoSize | Out-String | ForEach-Object { Log $_ 'White' }
+$summary | Format-Table -AutoSize | Out-String -Width 200 | ForEach-Object { Log $_ 'White' }
 Log "Log file: $LogFile" 'DarkGray'
 Log "Restart the editor to load everything. Re-run this script any time; it skips what is already installed." 'Cyan'

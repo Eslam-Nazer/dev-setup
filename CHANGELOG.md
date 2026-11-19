@@ -7,6 +7,17 @@ Write new entries under **[Unreleased]**; `build/bump-version.ps1` moves them in
 
 ## [Unreleased]
 
+### Added
+- `env/`: checks and installs dev tools (Herd / Laragon / official PHP, Composer, Git, Node.js, NestJS CLI, Docker) with winget, asking before each install
+- `env/`: choose the latest version or pick one from the list of available versions
+- `env/`: with Herd, PHP versions are managed with `herd php:install` / `herd use` and Node.js with `herd node:install`; otherwise official publishers via winget
+- `editor/`: offers to run `env` first when PHP or Node.js is missing (`-SkipEnvCheck` to turn it off)
+- `docs/architecture.md` (how the repo is organized, adding a tool), `docs/env/usage.md`
+- MIT license
+
+### Fixed
+- Questions no longer loop forever when console input is closed; summary table prints in narrow / redirected consoles
+
 ## [0.1.0] - 2026-11-19
 
 ### Added

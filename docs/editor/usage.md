@@ -13,6 +13,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\editor\setup-dev-extension
 | `-Yes` | switch | Accept every default, ask nothing. |
 | `-SkipSettings` | switch | Install extensions only; leave settings and shortcuts alone. |
 | `-MaxRetries` | number (default 8) | Retries per network step. |
+| `-SkipEnvCheck` | switch | Do not check for PHP / Node.js or offer to run the env tool. |
+| `-Version` | switch | Print the version and exit. |
 
 Examples:
 
@@ -23,6 +25,18 @@ Examples:
 # Extensions only, both editors
 .\editor\setup-dev-extensions.ps1 -Target both -SkipSettings
 ```
+
+## Dev tools check
+
+Before installing anything, the script checks that `php` and `node` are on PATH.
+If one is missing it asks "Run the dev tools setup (env) first?" (default yes).
+
+- It finds the env tool at `..\env\setup-dev-env.ps1` (clone), in the same folder, or downloads it from the latest release.
+- `env` exit code 0 means PHP and Node.js are available. The editor refreshes PATH and continues.
+  If something is still missing it warns and carries on.
+- Answer no, or pass `-SkipEnvCheck`, to skip it.
+
+See [How this repo is organized](../architecture.md) and the [env tool](../env/usage.md).
 
 ## Settings sources
 
