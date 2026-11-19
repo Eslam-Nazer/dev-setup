@@ -7,6 +7,8 @@ Write new entries under **[Unreleased]**; `build/bump-version.ps1` moves them in
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-19
+
 ### Changed
 - Pick-any lists (editors, databases, GUI clients, editor DB extensions) now show every item; installed ones appear in green as `[installed]` and are skipped if picked
 
