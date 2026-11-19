@@ -7,7 +7,7 @@ Scripts to set up a Windows dev machine for **Laravel + NestJS** (PHP / TypeScri
 
 | Tool | What it does |
 |---|---|
-| [`env/`](env/) | Checks and installs dev tools: Herd/Laragon/PHP, Composer, Git, Node.js, NestJS CLI, Docker, databases (PostgreSQL, MySQL, MariaDB, Redis, MongoDB) and DB GUI clients |
+| [`env/`](env/) | Checks and installs dev tools: Herd/Laragon/PHP, Composer, Git, Node.js, NestJS CLI, Docker, editors (PhpStorm, VS Code, Cursor), databases (PostgreSQL, MySQL, MariaDB, Redis, MongoDB) and DB GUI clients |
 | [`editor/`](editor/) | One-click Cursor / VS Code setup with a PhpStorm feel |
 
 **New machine?** Run `env` first, then `editor`. (The editor tool offers to run `env` automatically if PHP or Node.js are missing.)

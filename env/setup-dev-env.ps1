@@ -15,6 +15,7 @@
   Otherwise every tool comes from its official publisher through winget.
     NestJS CLI       npm install -g @nestjs/cli
     Docker Desktop   optional
+    Editors          optional, pick any: PhpStorm, VS Code, Cursor (checked first; only missing ones are offered)
     Databases        optional, pick any: PostgreSQL, MySQL, MariaDB, Redis (Memurai), MongoDB
                      native official installers (their own setup window asks for the admin password);
                      services can be switched to Manual start so they do not use RAM at boot
@@ -25,7 +26,7 @@
   Run:  powershell -NoProfile -ExecutionPolicy Bypass -File .\setup-dev-env.ps1
   Options:
     -CheckOnly   report what is installed / missing, install nothing
-    -Yes         accept every default (installs everything missing except optional heavy tools like Docker; Herd for PHP)
+    -Yes         accept every default (installs everything missing except optional tools: Docker, editors, databases, GUI clients; Herd for PHP)
     -MaxRetries  retries per network step (default 4)
     -Version     print the version and exit
 
@@ -429,6 +430,59 @@ function Install-NodeWithHerd {
 }
 
 # ---------------------------------------------------------------------------
+# Editors. Detected by their usual install folders first, then winget list. Edit here to add one.
+# ---------------------------------------------------------------------------
+$EditorApps = @(
+    @{ Name = 'PhpStorm'; Winget = @('JetBrains.PhpStorm'); Url = 'https://www.jetbrains.com/phpstorm/download/'
+       Paths = @("$env:ProgramFiles\JetBrains\PhpStorm*\bin\phpstorm64.exe", "$env:LOCALAPPDATA\Programs\PhpStorm*\bin\phpstorm64.exe", "$env:LOCALAPPDATA\JetBrains\Toolbox\apps\PhpStorm\*\*\bin\phpstorm64.exe", "$env:LOCALAPPDATA\Programs\PhpStorm\bin\phpstorm64.exe")
+       Warning = 'PhpStorm is paid: 30-day free trial, free for students and open-source projects.' }
+    @{ Name = 'VS Code';  Winget = @('Microsoft.VisualStudioCode'); Url = 'https://code.visualstudio.com/'; Cmd = 'code'
+       Paths = @("$env:LOCALAPPDATA\Programs\Microsoft VS Code\Code.exe", "$env:ProgramFiles\Microsoft VS Code\Code.exe") }
+    @{ Name = 'Cursor';   Winget = @('Anysphere.Cursor'); Url = 'https://cursor.com/download'; Cmd = 'cursor'
+       Paths = @("$env:LOCALAPPDATA\Programs\cursor\Cursor.exe", "$env:ProgramFiles\Cursor\Cursor.exe")
+       Warning = 'Cursor is free to install; its AI features have usage limits on the free plan.' }
+)
+
+function Find-EditorApp($app) {
+    foreach ($p in $app.Paths) {
+        $hit = Get-ChildItem -Path $p -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if ($hit) {
+            $v = '?'; try { $v = $hit.VersionInfo.ProductVersion } catch {}
+            return [pscustomobject]@{ Version = $v; Path = $hit.FullName }
+        }
+    }
+    if ($app.Cmd) { $c = Get-CmdVersion $app.Cmd; if ($c) { return $c } }
+    if (Test-WingetInstalled $app.Winget) { return [pscustomobject]@{ Version = '?'; Path = '(winget)' } }
+    return $null
+}
+
+function Invoke-EditorStep {
+    Step 'Editors (optional)'
+    $missing = @()
+    foreach ($app in $EditorApps) {
+        $r = Find-EditorApp $app
+        if ($r) { Ok "$($app.Name) $($r.Version)  ($($r.Path))"; Add-Result $app.Name 'present' $r.Version }
+        else { $missing += $app }
+    }
+    if (-not $missing.Count) { return }
+    if ($CheckOnly) { foreach ($app in $missing) { Warn "$($app.Name) not found."; Add-Result $app.Name 'MISSING' $app.Url }; return }
+
+    foreach ($app in $missing) { if ($app.Warning) { Info "$($app.Name): $($app.Warning)" } }
+    $picked = @(Ask-MultiChoice 'Install editors? (pick any or none)' @($missing | ForEach-Object { $_.Name }))
+    foreach ($i in $picked) {
+        $app = $missing[$i]
+        try {
+            if (Install-Tool $app) {
+                Update-SessionPath
+                $r = Find-EditorApp $app
+                if ($r) { Ok "$($app.Name) installed"; Add-Result $app.Name 'installed' $r.Version }
+                else { Warn "$($app.Name) installed but not found yet (open a new terminal)."; Add-Result $app.Name 'installed (new terminal)' '' }
+            } else { Add-Result $app.Name 'FAILED' $app.Url }
+        } catch { Err "$($app.Name): $($_.Exception.Message)"; Add-Result $app.Name 'FAILED' $app.Url }
+    }
+}
+
+# ---------------------------------------------------------------------------
 # Databases (native, official installers). Edit here to add one.
 #   Lines + IdFormat  one winget package per major version (like PostgreSQL.PostgreSQL.17)
 #   Winget            package ids, tried in order
@@ -693,6 +747,9 @@ foreach ($t in $Tools) {
         Add-Result $t.Name 'FAILED' $t.Url
     }
 }
+
+# --- Editors ---------------------------------------------------------------
+Invoke-EditorStep
 
 # --- Databases + GUI clients -------------------------------------------------
 Invoke-DatabaseStep

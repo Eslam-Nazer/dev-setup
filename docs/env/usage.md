@@ -14,7 +14,7 @@ Or double-click the `.bat` launcher in `env\`.
 | Option | Values | Meaning |
 |---|---|---|
 | `-CheckOnly` | switch | Report what is installed or missing; install nothing. |
-| `-Yes` | switch | Accept every default: installs everything missing except optional heavy tools (Docker, databases, GUI clients), Herd for PHP, latest versions. |
+| `-Yes` | switch | Accept every default: installs everything missing except optional tools (Docker, editors, databases, GUI clients), Herd for PHP, latest versions. |
 | `-MaxRetries` | number (default 4) | Retries per network step. |
 | `-Version` | switch | Print the version and exit. |
 
@@ -40,8 +40,9 @@ Examples:
 | 6 | Node.js (+npm) | `node --version` | `herd node:install` with Herd, otherwise winget `OpenJS.NodeJS.LTS` | |
 | 7 | NestJS CLI | `nest --version` | `npm install -g @nestjs/cli` | Needs Node.js first. |
 | 8 | Docker Desktop | `docker --version` | winget `Docker.DockerDesktop` | **Optional** (question defaults to No, `-Yes` skips it): ~1 GB, needs WSL 2, free for personal use and small companies only. Restart Windows afterwards. |
-| 9 | Databases | Windows service (`postgresql*`, `MySQL*`, `MariaDB*`, `Memurai*`, `MongoDB*`) | official installer via winget, **interactive** | **Optional**, pick any (see [Databases](#databases)). |
-| 10 | DB GUI clients | `winget list` (programs already on the PC) | winget | **Optional**, pick any. |
+| 9 | Editors | usual install folders (incl. JetBrains Toolbox for PhpStorm), then the `code` / `cursor` command, then `winget list` | winget `JetBrains.PhpStorm`, `Microsoft.VisualStudioCode`, `Anysphere.Cursor` | **Optional**, pick any (see [Editors](#editors)). |
+| 10 | Databases | Windows service (`postgresql*`, `MySQL*`, `MariaDB*`, `Memurai*`, `MongoDB*`) | official installer via winget, **interactive** | **Optional**, pick any (see [Databases](#databases)). |
+| 11 | DB GUI clients | `winget list` (programs already on the PC) | winget | **Optional**, pick any. |
 
 ## Choosing the PHP environment
 
@@ -53,6 +54,20 @@ If neither Herd nor Laragon is found, it asks:
 4. **Skip**
 
 Choose only one. Herd and Laragon both put their own PHP first in PATH, so having both makes it unclear which `php` runs.
+
+## Editors
+
+The tool checks for **PhpStorm**, **VS Code** and **Cursor** before downloading anything, and offers only the missing ones.
+Pick any number (`1,2`), or press Enter for none. `-Yes` installs none (editors are large). You also pick the version.
+
+| Editor | winget package | Detected at | Cost |
+|---|---|---|---|
+| PhpStorm | `JetBrains.PhpStorm` | `Program Files\JetBrains\PhpStorm*`, `%LOCALAPPDATA%\Programs\PhpStorm*`, JetBrains Toolbox apps | Paid: 30-day trial, free for students and open-source projects |
+| VS Code | `Microsoft.VisualStudioCode` | `%LOCALAPPDATA%\Programs\Microsoft VS Code`, `Program Files\Microsoft VS Code`, `code` | Free |
+| Cursor | `Anysphere.Cursor` | `%LOCALAPPDATA%\Programs\cursor`, `cursor` | Free to install; AI features have free-plan limits |
+
+After installing VS Code or Cursor, run the editor tool to add the extensions and settings.
+Edit the list in `$EditorApps` (`Name`, `Winget`, `Paths`, optional `Cmd`, `Warning`, `Url`).
 
 ## Databases
 
