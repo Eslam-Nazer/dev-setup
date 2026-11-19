@@ -57,7 +57,8 @@ Choose only one. Herd and Laragon both put their own PHP first in PATH, so havin
 
 ## Editors
 
-The tool checks for **PhpStorm**, **VS Code** and **Cursor** before downloading anything, and offers only the missing ones.
+The tool checks for **PhpStorm**, **VS Code** and **Cursor** before downloading anything. All three are listed; the ones
+already on the PC are shown in green as `[installed]` (with their version), and picking one of those just says it is already installed.
 Pick any number (`1,2`), or press Enter for none. `-Yes` installs none (editors are large). You also pick the version.
 
 | Editor | winget package | Detected at | Cost |
@@ -72,7 +73,8 @@ Edit the list in `$EditorApps` (`Name`, `Winget`, `Paths`, optional `Cmd`, `Warn
 ## Databases
 
 Everything is checked **before** anything is downloaded: a database counts as installed when its Windows service exists,
-and a GUI client when `winget list` finds it. Only what is missing is offered.
+and a GUI client when `winget list` finds it. Every item is listed; installed ones are shown in green as `[installed]`
+and are skipped if you pick them.
 
 You pick any number from a list (`1,3`), or press Enter for none. `-Yes` installs none (databases are heavy).
 

@@ -96,12 +96,16 @@ function Ask-Choice([string]$Question, [string[]]$Options, [int]$Default = 1) {
     }
 }
 
-function Ask-MultiChoice([string]$Question, [string[]]$Options) {
-    # Returns the 0-based indexes picked; Enter (or -Yes) picks nothing
+function Ask-MultiChoice([string]$Question, [string[]]$Options, [bool[]]$Installed = @()) {
+    # Returns the 0-based indexes picked; Enter (or -Yes) picks nothing.
+    # Items flagged in $Installed are listed in green as [installed]; picking one just reports it.
     if ($Yes) { return @() }
     Write-Host ''
     Write-Host $Question -ForegroundColor Cyan
-    for ($i = 0; $i -lt $Options.Count; $i++) { Write-Host ("  {0}) {1}" -f ($i + 1), $Options[$i]) }
+    for ($i = 0; $i -lt $Options.Count; $i++) {
+        if ($i -lt $Installed.Count -and $Installed[$i]) { Write-Host ("  {0}) {1}   [installed]" -f ($i + 1), $Options[$i]) -ForegroundColor Green }
+        else { Write-Host ("  {0}) {1}" -f ($i + 1), $Options[$i]) }
+    }
     while ($true) {
         $a = Read-Host 'Numbers separated by commas (e.g. 1,3), Enter for none'
         if ($null -eq $a) { return @() }
@@ -113,8 +117,13 @@ function Ask-MultiChoice([string]$Question, [string[]]$Options) {
             if ([int]::TryParse($n, [ref]$k) -and $k -ge 1 -and $k -le $Options.Count) { if ($res -notcontains ($k - 1)) { $res += ($k - 1) } }
             else { $valid = $false }
         }
-        if ($valid) { return $res }
-        Write-Host '  Please use numbers from the list.' -ForegroundColor Yellow
+        if (-not $valid) { Write-Host '  Please use numbers from the list.' -ForegroundColor Yellow; continue }
+        $out = @()
+        foreach ($k in $res) {
+            if ($k -lt $Installed.Count -and $Installed[$k]) { Write-Host "  $(($Options[$k] -split '\s{2,}')[0]) is already installed, skipped." -ForegroundColor Green }
+            else { $out += $k }
+        }
+        return $out
     }
 }
 
@@ -678,12 +687,12 @@ if (-not $SkipSettings) {
 # ---------------------------------------------------------------------------
 # Database extension question (checked first: already-installed ones are marked)
 # ---------------------------------------------------------------------------
-$dbOpts = foreach ($c in $DbExtensionChoices) {
-    $have = $false
-    foreach ($t in $targets) { if (Test-ExtensionInstalled $Editors[$t].ExtDir $c.Ids[0]) { $have = $true } }
-    if ($have) { "$($c.Name)  [installed]" } else { $c.Name }
-}
-$dbPicked = @(Ask-MultiChoice 'Add a database extension to the editor? (pick any or none)' @($dbOpts))
+$dbHave = @(foreach ($c in $DbExtensionChoices) {
+    $h = $false
+    foreach ($t in $targets) { if (Test-ExtensionInstalled $Editors[$t].ExtDir $c.Ids[0]) { $h = $true } }
+    $h
+})
+$dbPicked = @(Ask-MultiChoice 'Add a database extension to the editor? (pick any or none)' @($DbExtensionChoices | ForEach-Object { $_.Name }) $dbHave)
 foreach ($i in $dbPicked) {
     $c = $DbExtensionChoices[$i]
     $label = ($c.Name -split '\s{2,}')[0]

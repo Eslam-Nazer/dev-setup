@@ -97,12 +97,16 @@ function Ask-Choice([string]$Question, [string[]]$Options, [int]$Default = 1) {
     }
 }
 
-function Ask-MultiChoice([string]$Question, [string[]]$Options) {
-    # Returns the 0-based indexes picked; Enter (or -Yes) picks nothing
+function Ask-MultiChoice([string]$Question, [string[]]$Options, [bool[]]$Installed = @()) {
+    # Returns the 0-based indexes picked; Enter (or -Yes) picks nothing.
+    # Items flagged in $Installed are listed in green as [installed]; picking one just reports it.
     if ($Yes) { return @() }
     Write-Host ''
     Write-Host $Question -ForegroundColor Cyan
-    for ($i = 0; $i -lt $Options.Count; $i++) { Write-Host ("  {0}) {1}" -f ($i + 1), $Options[$i]) }
+    for ($i = 0; $i -lt $Options.Count; $i++) {
+        if ($i -lt $Installed.Count -and $Installed[$i]) { Write-Host ("  {0}) {1}   [installed]" -f ($i + 1), $Options[$i]) -ForegroundColor Green }
+        else { Write-Host ("  {0}) {1}" -f ($i + 1), $Options[$i]) }
+    }
     while ($true) {
         $a = Read-Host 'Numbers separated by commas (e.g. 1,3), Enter for none'
         if ($null -eq $a) { return @() }
@@ -114,8 +118,13 @@ function Ask-MultiChoice([string]$Question, [string[]]$Options) {
             if ([int]::TryParse($n, [ref]$k) -and $k -ge 1 -and $k -le $Options.Count) { if ($res -notcontains ($k - 1)) { $res += ($k - 1) } }
             else { $valid = $false }
         }
-        if ($valid) { return $res }
-        Write-Host '  Please use numbers from the list.' -ForegroundColor Yellow
+        if (-not $valid) { Write-Host '  Please use numbers from the list.' -ForegroundColor Yellow; continue }
+        $out = @()
+        foreach ($k in $res) {
+            if ($k -lt $Installed.Count -and $Installed[$k]) { Write-Host "  $(($Options[$k] -split '\s{2,}')[0]) is already installed, skipped." -ForegroundColor Green }
+            else { $out += $k }
+        }
+        return $out
     }
 }
 
@@ -458,19 +467,23 @@ function Find-EditorApp($app) {
 
 function Invoke-EditorStep {
     Step 'Editors (optional)'
-    $missing = @()
+    $have = @(); $labels = @()
     foreach ($app in $EditorApps) {
         $r = Find-EditorApp $app
-        if ($r) { Ok "$($app.Name) $($r.Version)  ($($r.Path))"; Add-Result $app.Name 'present' $r.Version }
-        else { $missing += $app }
+        $have += [bool]$r
+        $labels += $(if ($r -and $r.Version -and $r.Version -ne '?') { "$($app.Name)  ($($r.Version))" } else { $app.Name })
+        if ($r) { Add-Result $app.Name 'present' $r.Version }
     }
-    if (-not $missing.Count) { return }
-    if ($CheckOnly) { foreach ($app in $missing) { Warn "$($app.Name) not found."; Add-Result $app.Name 'MISSING' $app.Url }; return }
-
-    foreach ($app in $missing) { if ($app.Warning) { Info "$($app.Name): $($app.Warning)" } }
-    $picked = @(Ask-MultiChoice 'Install editors? (pick any or none)' @($missing | ForEach-Object { $_.Name }))
+    if ($CheckOnly -or -not ($have -contains $false)) {
+        for ($i = 0; $i -lt $EditorApps.Count; $i++) {
+            if ($have[$i]) { Ok "$($labels[$i])  installed" } else { Warn "$($EditorApps[$i].Name) not found."; Add-Result $EditorApps[$i].Name 'MISSING' $EditorApps[$i].Url }
+        }
+        return
+    }
+    for ($i = 0; $i -lt $EditorApps.Count; $i++) { if (-not $have[$i] -and $EditorApps[$i].Warning) { Info "$($EditorApps[$i].Name): $($EditorApps[$i].Warning)" } }
+    $picked = @(Ask-MultiChoice 'Install editors? (pick any or none)' $labels $have)
     foreach ($i in $picked) {
-        $app = $missing[$i]
+        $app = $EditorApps[$i]
         try {
             if (Install-Tool $app) {
                 Update-SessionPath
@@ -481,6 +494,7 @@ function Invoke-EditorStep {
         } catch { Err "$($app.Name): $($_.Exception.Message)"; Add-Result $app.Name 'FAILED' $app.Url }
     }
 }
+
 
 # ---------------------------------------------------------------------------
 # Databases (native, official installers). Edit here to add one.
@@ -552,55 +566,66 @@ function Set-ServicesManual([string[]]$Names) {
 
 function Invoke-DatabaseStep {
     Step 'Databases (optional)'
-    $present = @(); $missing = @()
+    # 1) check what is already on this PC, before any download
+    $have = @(); $labels = @()
     foreach ($db in $Databases) {
         $svc = Find-DbService $db.Service
-        if ($svc) { Ok "$($db.Name): service '$($svc.Name)' ($($svc.StartType))"; $present += $db; Add-Result $db.Name 'present' "$($svc.Name), $($svc.StartType)" }
-        else { $missing += $db }
+        $have += [bool]$svc
+        $labels += $(if ($svc) { "$($db.Name)  (service $($svc.Name), $($svc.StartType))" } else { $db.Name })
+        if ($svc) { Add-Result $db.Name 'present' "$($svc.Name), $($svc.StartType)" }
     }
-    if ($CheckOnly) { if (-not $present.Count) { Info 'No database server found.' }; return }
-
-    if ($missing.Count) {
-        $picked = @(Ask-MultiChoice 'Install database servers? (native, official installers; pick any or none)' @($missing | ForEach-Object { $_.Name }))
+    if ($CheckOnly) {
+        for ($i = 0; $i -lt $Databases.Count; $i++) { if ($have[$i]) { Ok "$($labels[$i])  installed" } }
+        if (-not ($have -contains $true)) { Info 'No database server found.' }
+    } elseif ($have -contains $false) {
+        $picked = @(Ask-MultiChoice 'Install database servers? (native, official installers; pick any or none)' $labels $have)
         foreach ($i in $picked) {
-            $db = $missing[$i]
+            $db = $Databases[$i]
             if ($db.Warning) { Warn $db.Warning }
             try {
                 if (Install-Database $db) {
                     $svc = Find-DbService $db.Service
-                    if ($svc) { Ok "$($db.Name) installed (service '$($svc.Name)')"; Add-Result $db.Name 'installed' $svc.Name; $present += $db }
+                    if ($svc) { Ok "$($db.Name) installed (service '$($svc.Name)')"; Add-Result $db.Name 'installed' $svc.Name }
                     else { Warn "$($db.Name) installer finished, but no service was found (cancelled, or it needs a restart)."; Add-Result $db.Name 'not detected' '' }
                 } else { Add-Result $db.Name 'FAILED' $db.Url }
             } catch { Err "$($db.Name): $($_.Exception.Message)"; Add-Result $db.Name 'FAILED' $db.Url }
         }
+    } else {
+        for ($i = 0; $i -lt $Databases.Count; $i++) { Ok "$($labels[$i])  installed" }
     }
 
-    # Save RAM/CPU: database services should not start with Windows unless you want them to
-    $auto = @($present | ForEach-Object { Find-DbService $_.Service } | Where-Object { $_ -and "$($_.StartType)" -eq 'Automatic' })
-    if ($auto.Count) {
-        $names = @($auto | ForEach-Object { $_.Name })
-        Info ("These database services start with Windows and use memory all the time: {0}" -f ($names -join ', '))
-        if (Ask-YesNo 'Switch them to Manual start (start them only when you work)?' $true) {
-            try {
-                Set-ServicesManual $names
-                $still = @($names | Where-Object { "$((Find-DbService $_).StartType)" -eq 'Automatic' })
-                if ($still.Count) { Warn "Not changed (UAC declined?): $($still -join ', ')" }
-                else { Ok 'Set to Manual. Start one when needed (admin terminal): net start <service>   Stop: net stop <service>' }
-            } catch { Warn "Could not change the services: $($_.Exception.Message)" }
+    # 2) save RAM/CPU: database services should not start with Windows unless you want them to
+    if (-not $CheckOnly) {
+        $auto = @($Databases | ForEach-Object { Find-DbService $_.Service } | Where-Object { $_ -and "$($_.StartType)" -eq 'Automatic' })
+        if ($auto.Count) {
+            $names = @($auto | ForEach-Object { $_.Name })
+            Info ("These database services start with Windows and use memory all the time: {0}" -f ($names -join ', '))
+            if (Ask-YesNo 'Switch them to Manual start (start them only when you work)?' $true) {
+                try {
+                    Set-ServicesManual $names
+                    $still = @($names | Where-Object { "$((Find-DbService $_).StartType)" -eq 'Automatic' })
+                    if ($still.Count) { Warn "Not changed (UAC declined?): $($still -join ', ')" }
+                    else { Ok 'Set to Manual. Start one when needed (admin terminal): net start <service>   Stop: net stop <service>' }
+                } catch { Warn "Could not change the services: $($_.Exception.Message)" }
+            }
         }
     }
 
-    # GUI clients: check what is already installed first, offer only the rest
-    $clientsMissing = @()
+    # 3) GUI clients: same idea, installed ones are shown as [installed]
+    $have = @(); $labels = @()
     foreach ($c in $DbClients) {
         $name = ($c.Name -split '\s{2,}')[0]
-        if (Test-WingetInstalled $c.Winget) { Ok "$name already installed"; Add-Result $name 'present' '' }
-        else { $clientsMissing += $c }
+        $ok = Test-WingetInstalled $c.Winget
+        $have += [bool]$ok; $labels += $c.Name
+        if ($ok) { Add-Result $name 'present' '' }
     }
-    if (-not $clientsMissing.Count) { return }
-    $picked = @(Ask-MultiChoice 'Install database GUI clients? (pick any or none)' @($clientsMissing | ForEach-Object { $_.Name }))
+    if ($CheckOnly -or -not ($have -contains $false)) {
+        for ($i = 0; $i -lt $DbClients.Count; $i++) { if ($have[$i]) { Ok "$(($DbClients[$i].Name -split '\s{2,}')[0])  installed" } }
+        return
+    }
+    $picked = @(Ask-MultiChoice 'Install database GUI clients? (pick any or none)' $labels $have)
     foreach ($i in $picked) {
-        $c = $clientsMissing[$i]
+        $c = $DbClients[$i]
         $name = ($c.Name -split '\s{2,}')[0]
         try {
             if (Install-Tool @{ Name = $name; Winget = $c.Winget; Url = $c.Url }) { Ok "$name installed"; Add-Result $name 'installed' '' }
@@ -608,6 +633,7 @@ function Invoke-DatabaseStep {
         } catch { Err "${name}: $($_.Exception.Message)"; Add-Result $name 'FAILED' $c.Url }
     }
 }
+
 
 # ---------------------------------------------------------------------------
 # Main
