@@ -383,8 +383,53 @@ function Invoke-Herd([string[]]$HerdArgs, [string]$What) {
     } $What 'herd.laravel.com'
 }
 
+$HerdWaitSeconds = 600   # how long to wait for Herd's first-run setup
+
+function Test-EnterPressed {
+    # True if the user pressed Enter (only in a real console; piped input -> False)
+    try { while ([Console]::KeyAvailable) { if ([Console]::ReadKey($true).Key -eq 'Enter') { return $true } } } catch {}
+    return $false
+}
+
+function Wait-HerdReady {
+    # Herd's installer only installs the app; PHP is downloaded the first time Herd is opened.
+    if ((Get-HerdPhpInstalled).Count) { return $true }
+    $h = Find-Herd
+    if ($h -and $h.Path -like '*.exe') {
+        Info 'Opening Herd: finish its first-run setup there (it downloads PHP and adds it to PATH).'
+        try { Start-Process -FilePath $h.Path } catch { Warn "Could not open Herd: $($_.Exception.Message)" }
+    } else {
+        Info 'Open Herd and finish its first-run setup (it downloads PHP and adds it to PATH).'
+    }
+    Info ("Waiting for Herd's PHP (up to {0} min). Press Enter to stop waiting and continue." -f [int]($HerdWaitSeconds / 60))
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    while ($sw.Elapsed.TotalSeconds -lt $HerdWaitSeconds) {
+        $php = Get-HerdPhpInstalled
+        if ($php.Count) {
+            Update-SessionPath
+            $bin = Join-Path $env:USERPROFILE '.config\herd\bin'
+            if (-not (Get-Command php -ErrorAction SilentlyContinue) -and (Test-Path $bin)) { $env:Path = "$bin;$env:Path" }
+            Ok ("Herd is ready (PHP {0})" -f ($php -join ', '))
+            return $true
+        }
+        if (Test-EnterPressed) { Info 'Stopped waiting for Herd.'; return $false }
+        Start-Sleep -Seconds 3
+    }
+    Warn 'Herd is not ready yet. Finish its setup in the Herd window, then run this script again.'
+    return $false
+}
+
+function Wait-LaragonReady([string]$LaragonExe) {
+    # Laragon ships PHP, but only adds it to PATH when you ask it to.
+    if ($LaragonExe -and (Test-Path $LaragonExe)) { try { Start-Process -FilePath $LaragonExe } catch {} }
+    Info 'In Laragon: Menu > Tools > Path > Add Laragon to Path.'
+    if (-not $Yes) { $null = Read-Host 'Press Enter when done' }
+    Update-SessionPath
+}
+
 function Set-HerdPhpVersions {
     Step 'PHP versions (via Herd)'
+    if (-not $CheckOnly -and -not (Get-HerdPhpInstalled).Count) { $null = Wait-HerdReady; Update-SessionPath }
     if (-not (Test-HerdCli)) { Warn "The 'herd' command is not on PATH yet. Open Herd once, then re-run to manage PHP versions."; return }
     $installed = Get-HerdPhpInstalled
     if ($installed) { Ok ("Installed PHP versions: {0}" -f ($installed -join ', ')) } else { Warn 'No PHP version installed in Herd yet.' }
@@ -687,8 +732,9 @@ if ($found.Count -eq 0) {
                     if ($r) {
                         Ok "$($e.Name) installed"; $found[$e.Key] = $r
                         Add-Result $e.Name 'installed' $r.Path
-                        if ($e.Key -eq 'herd') { Info 'Open Herd once so it finishes setting up PHP and adds it to PATH.' }
-                        if ($e.Key -eq 'laragon') { Info 'Open Laragon once, then Menu > Tools > Path > Add Laragon to Path.' }
+                        # Installer done (winget waited for it). Now wait for the app's own first-run setup.
+                        if ($e.Key -eq 'herd') { $null = Wait-HerdReady }
+                        if ($e.Key -eq 'laragon') { Wait-LaragonReady $r.Path }
                     } else { Warn "$($e.Name) installed but not detected yet; open it once, then re-run." ; Add-Result $e.Name 'installed (open it once)' '' }
                 } else { Add-Result $e.Name 'FAILED' $e.Url }
             } catch { Err "$($e.Name): $($_.Exception.Message)"; Add-Result $e.Name 'FAILED' $e.Url }

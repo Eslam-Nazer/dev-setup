@@ -106,6 +106,16 @@ GUI clients you can pick (any or none):
 
 For a database extension inside the editor instead of (or as well as) a separate app, see the editor tool.
 
+## Waiting for installers and first-run setup
+
+- **Installers:** `winget` waits until the installer has finished before the script continues, both for silent
+  installs and for interactive ones (where you click Next → Finish, e.g. databases). If an installer closes early and
+  keeps working in the background, the check after the install reports it as "not detected yet" instead of "installed".
+- **Herd:** its installer only installs the app; PHP is downloaded the first time Herd is opened. After installing Herd
+  (or when Herd is installed but has no PHP yet), the script opens Herd and **waits** until PHP appears (up to 10 minutes,
+  `$HerdWaitSeconds`), then continues. Press Enter to stop waiting.
+- **Laragon:** the script opens Laragon and waits for you to choose *Menu > Tools > Path > Add Laragon to Path*, then press Enter.
+
 ## Herd path
 
 Used **only** when Herd is installed or you chose it:

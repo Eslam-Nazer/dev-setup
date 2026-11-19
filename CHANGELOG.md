@@ -7,6 +7,9 @@ Write new entries under **[Unreleased]**; `build/bump-version.ps1` moves them in
 
 ## [Unreleased]
 
+### Fixed
+- `env/`: after installing Herd (or when Herd has no PHP yet) the script opens Herd and waits for its first-run setup to download PHP before continuing (Enter stops waiting); for Laragon it opens the app and waits until you add it to PATH
+
 ## [0.2.1] - 2026-11-19
 
 ### Changed
