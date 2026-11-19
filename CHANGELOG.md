@@ -13,6 +13,9 @@ Write new entries under **[Unreleased]**; `build/bump-version.ps1` moves them in
 - `env/`: with Herd, PHP versions are managed with `herd php:install` / `herd use` and Node.js with `herd node:install`; otherwise official publishers via winget
 - `editor/`: offers to run `env` first when PHP or Node.js is missing (`-SkipEnvCheck` to turn it off)
 - `docs/architecture.md` (how the repo is organized, adding a tool), `docs/env/usage.md`
+- `env/`: optional databases, pick any: PostgreSQL (choose the major), MySQL, MariaDB, Redis (Memurai Developer), MongoDB; official installers run interactively so you set the admin password yourself
+- `env/`: offers to switch database services to Manual start so they don't use RAM at boot
+- `env/`: optional DB GUI clients, pick any: DBeaver, HeidiSQL, pgAdmin, MySQL Workbench, MongoDB Compass, Redis Insight; installed ones are detected first and not offered
 - MIT license
 
 ### Changed

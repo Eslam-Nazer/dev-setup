@@ -14,7 +14,11 @@
   Herd's own commands are used only when Herd is installed or chosen.
   Otherwise every tool comes from its official publisher through winget.
     NestJS CLI       npm install -g @nestjs/cli
-    Docker Desktop
+    Docker Desktop   optional
+    Databases        optional, pick any: PostgreSQL, MySQL, MariaDB, Redis (Memurai), MongoDB
+                     native official installers (their own setup window asks for the admin password);
+                     services can be switched to Manual start so they do not use RAM at boot
+    DB GUI clients   optional, pick any: DBeaver, HeidiSQL, pgAdmin, MySQL Workbench, Compass, Redis Insight
 
   For every install it asks: latest version, or pick one from the list of available versions.
 
@@ -89,6 +93,28 @@ function Ask-Choice([string]$Question, [string[]]$Options, [int]$Default = 1) {
         if (-not $a) { return $Default }
         $n = 0
         if ([int]::TryParse($a, [ref]$n) -and $n -ge 1 -and $n -le $Options.Count) { return $n }
+    }
+}
+
+function Ask-MultiChoice([string]$Question, [string[]]$Options) {
+    # Returns the 0-based indexes picked; Enter (or -Yes) picks nothing
+    if ($Yes) { return @() }
+    Write-Host ''
+    Write-Host $Question -ForegroundColor Cyan
+    for ($i = 0; $i -lt $Options.Count; $i++) { Write-Host ("  {0}) {1}" -f ($i + 1), $Options[$i]) }
+    while ($true) {
+        $a = Read-Host 'Numbers separated by commas (e.g. 1,3), Enter for none'
+        if ($null -eq $a) { return @() }
+        $a = $a.Trim()
+        if (-not $a) { return @() }
+        $res = @(); $valid = $true
+        foreach ($n in ($a -split '[,\s]+' | Where-Object { $_ })) {
+            $k = 0
+            if ([int]::TryParse($n, [ref]$k) -and $k -ge 1 -and $k -le $Options.Count) { if ($res -notcontains ($k - 1)) { $res += ($k - 1) } }
+            else { $valid = $false }
+        }
+        if ($valid) { return $res }
+        Write-Host '  Please use numbers from the list.' -ForegroundColor Yellow
     }
 }
 
@@ -216,11 +242,13 @@ function Resolve-WingetId([string[]]$Ids) {
     return $null
 }
 
-function Install-WingetPackage([string]$Id, [string]$PkgVersion) {
+function Install-WingetPackage([string]$Id, [string]$PkgVersion, [switch]$Interactive) {
     $verArgs = @()
     if ($PkgVersion) { $verArgs = @('--version', $PkgVersion) }
+    # Interactive = the product's own setup window (used for databases so YOU type the admin password)
+    $mode = if ($Interactive) { '--interactive' } else { '--silent' }
     Invoke-WithRetry {
-        winget install --id $Id --exact @verArgs --silent --accept-package-agreements --accept-source-agreements | Out-Host
+        winget install --id $Id --exact @verArgs $mode --accept-package-agreements --accept-source-agreements | Out-Host
         $code = $LASTEXITCODE
         # 0 = ok, 0x8A150061 = already installed, 0x8A15002B = no newer version, 0x8A150109 = ok, restart needed
         if ($code -in 0, -1978335135, -1978335189, -1978334967) { return }
@@ -401,6 +429,133 @@ function Install-NodeWithHerd {
 }
 
 # ---------------------------------------------------------------------------
+# Databases (native, official installers). Edit here to add one.
+#   Lines + IdFormat  one winget package per major version (like PostgreSQL.PostgreSQL.17)
+#   Winget            package ids, tried in order
+#   Service           Windows service name pattern (to detect it and to set Manual start)
+# ---------------------------------------------------------------------------
+$Databases = @(
+    @{ Name = 'PostgreSQL';                 Lines = @('18', '17', '16', '15'); IdFormat = 'PostgreSQL.PostgreSQL.{0}'; Service = 'postgresql*'; Url = 'https://www.postgresql.org/download/windows/' }
+    @{ Name = 'MySQL Community Server';     Winget = @('Oracle.MySQL');          Service = 'MySQL*';    Url = 'https://dev.mysql.com/downloads/mysql/' }
+    @{ Name = 'MariaDB Server';             Winget = @('MariaDB.Server');        Service = 'MariaDB*';  Url = 'https://mariadb.org/download/' }
+    @{ Name = 'Redis (Memurai Developer)';  Winget = @('Memurai.MemuraiDeveloper'); Service = 'Memurai*'; Url = 'https://www.memurai.com/get-memurai'
+       Warning = 'Redis has no official Windows build. Memurai Developer is a free Redis-compatible server for development (check its licence terms).' }
+    @{ Name = 'MongoDB Community Server';   Winget = @('MongoDB.Server');        Service = 'MongoDB*';  Url = 'https://www.mongodb.com/try/download/community' }
+)
+$DbClients = @(
+    @{ Name = 'DBeaver Community  (all databases)';               Winget = @('dbeaver.dbeaver');          Url = 'https://dbeaver.io/download/' }
+    @{ Name = 'HeidiSQL           (MySQL, MariaDB, PostgreSQL)';  Winget = @('HeidiSQL.HeidiSQL');        Url = 'https://www.heidisql.com/download.php' }
+    @{ Name = 'pgAdmin 4          (PostgreSQL)';                  Winget = @('PostgreSQL.pgAdmin');       Url = 'https://www.pgadmin.org/download/' }
+    @{ Name = 'MySQL Workbench    (MySQL)';                       Winget = @('Oracle.MySQLWorkbench');    Url = 'https://dev.mysql.com/downloads/workbench/' }
+    @{ Name = 'MongoDB Compass    (MongoDB)';                     Winget = @('MongoDB.Compass.Full', 'MongoDB.Compass.Community'); Url = 'https://www.mongodb.com/try/download/compass' }
+    @{ Name = 'Redis Insight      (Redis)';                       Winget = @('Redis.RedisInsight');       Url = 'https://redis.io/insight/' }
+)
+
+function Test-WingetInstalled([string[]]$Ids) {
+    # Checks the programs already on this PC (no download)
+    if (-not $HasWinget) { return $false }
+    foreach ($id in $Ids) {
+        $out = winget list --id $id --exact --accept-source-agreements 2>&1 | Out-String
+        if ($LASTEXITCODE -eq 0 -and $out -match [regex]::Escape($id)) { return $true }
+    }
+    return $false
+}
+
+function Find-DbService([string]$Pattern) {
+    try { return Get-Service -Name $Pattern -ErrorAction Stop | Select-Object -First 1 } catch { return $null }
+}
+
+function Install-Database($db) {
+    if (-not $HasWinget) { Warn "winget is not available. Download $($db.Name) from $($db.Url)"; return $false }
+    if ($db.Lines) {
+        $lines = @()
+        foreach ($l in $db.Lines) { if (Resolve-WingetId @($db.IdFormat -f $l)) { $lines += $l } }
+        if (-not $lines.Count) { Err "No winget package for $($db.Name). Download it from $($db.Url)"; return $false }
+        $l = Select-Version $db.Name $lines
+        if (-not $l) { $l = $lines[0] }
+        $id = $db.IdFormat -f $l; $v = $null
+    } else {
+        $id = Resolve-WingetId $db.Winget
+        if (-not $id) { Err "No winget package for $($db.Name). Download it from $($db.Url)"; return $false }
+        $v = Select-Version $db.Name (Get-WingetVersions $id)
+    }
+    Info "Opening the $($db.Name) installer ($id). Choose the admin password there; this script never sees it."
+    Install-WingetPackage $id $v -Interactive
+    return $true
+}
+
+function Set-ServicesManual([string[]]$Names) {
+    $isAdmin = $false
+    try { $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) } catch {}
+    if ($isAdmin) {
+        foreach ($n in $Names) { & sc.exe config $n start= demand | Out-Null }
+    } else {
+        # One UAC prompt for all services
+        $cmd = ($Names | ForEach-Object { "sc.exe config '$_' start= demand" }) -join '; '
+        Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList @('-NoProfile', '-Command', $cmd)
+    }
+}
+
+function Invoke-DatabaseStep {
+    Step 'Databases (optional)'
+    $present = @(); $missing = @()
+    foreach ($db in $Databases) {
+        $svc = Find-DbService $db.Service
+        if ($svc) { Ok "$($db.Name): service '$($svc.Name)' ($($svc.StartType))"; $present += $db; Add-Result $db.Name 'present' "$($svc.Name), $($svc.StartType)" }
+        else { $missing += $db }
+    }
+    if ($CheckOnly) { if (-not $present.Count) { Info 'No database server found.' }; return }
+
+    if ($missing.Count) {
+        $picked = @(Ask-MultiChoice 'Install database servers? (native, official installers; pick any or none)' @($missing | ForEach-Object { $_.Name }))
+        foreach ($i in $picked) {
+            $db = $missing[$i]
+            if ($db.Warning) { Warn $db.Warning }
+            try {
+                if (Install-Database $db) {
+                    $svc = Find-DbService $db.Service
+                    if ($svc) { Ok "$($db.Name) installed (service '$($svc.Name)')"; Add-Result $db.Name 'installed' $svc.Name; $present += $db }
+                    else { Warn "$($db.Name) installer finished, but no service was found (cancelled, or it needs a restart)."; Add-Result $db.Name 'not detected' '' }
+                } else { Add-Result $db.Name 'FAILED' $db.Url }
+            } catch { Err "$($db.Name): $($_.Exception.Message)"; Add-Result $db.Name 'FAILED' $db.Url }
+        }
+    }
+
+    # Save RAM/CPU: database services should not start with Windows unless you want them to
+    $auto = @($present | ForEach-Object { Find-DbService $_.Service } | Where-Object { $_ -and "$($_.StartType)" -eq 'Automatic' })
+    if ($auto.Count) {
+        $names = @($auto | ForEach-Object { $_.Name })
+        Info ("These database services start with Windows and use memory all the time: {0}" -f ($names -join ', '))
+        if (Ask-YesNo 'Switch them to Manual start (start them only when you work)?' $true) {
+            try {
+                Set-ServicesManual $names
+                $still = @($names | Where-Object { "$((Find-DbService $_).StartType)" -eq 'Automatic' })
+                if ($still.Count) { Warn "Not changed (UAC declined?): $($still -join ', ')" }
+                else { Ok 'Set to Manual. Start one when needed (admin terminal): net start <service>   Stop: net stop <service>' }
+            } catch { Warn "Could not change the services: $($_.Exception.Message)" }
+        }
+    }
+
+    # GUI clients: check what is already installed first, offer only the rest
+    $clientsMissing = @()
+    foreach ($c in $DbClients) {
+        $name = ($c.Name -split '\s{2,}')[0]
+        if (Test-WingetInstalled $c.Winget) { Ok "$name already installed"; Add-Result $name 'present' '' }
+        else { $clientsMissing += $c }
+    }
+    if (-not $clientsMissing.Count) { return }
+    $picked = @(Ask-MultiChoice 'Install database GUI clients? (pick any or none)' @($clientsMissing | ForEach-Object { $_.Name }))
+    foreach ($i in $picked) {
+        $c = $clientsMissing[$i]
+        $name = ($c.Name -split '\s{2,}')[0]
+        try {
+            if (Install-Tool @{ Name = $name; Winget = $c.Winget; Url = $c.Url }) { Ok "$name installed"; Add-Result $name 'installed' '' }
+            else { Add-Result $name 'FAILED' $c.Url }
+        } catch { Err "${name}: $($_.Exception.Message)"; Add-Result $name 'FAILED' $c.Url }
+    }
+}
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 $summary = @()
@@ -538,6 +693,9 @@ foreach ($t in $Tools) {
         Add-Result $t.Name 'FAILED' $t.Url
     }
 }
+
+# --- Databases + GUI clients -------------------------------------------------
+Invoke-DatabaseStep
 
 # --- Summary ---------------------------------------------------------------
 Step 'Summary'

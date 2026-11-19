@@ -14,7 +14,7 @@ Or double-click the `.bat` launcher in `env\`.
 | Option | Values | Meaning |
 |---|---|---|
 | `-CheckOnly` | switch | Report what is installed or missing; install nothing. |
-| `-Yes` | switch | Accept every default: installs everything missing except optional heavy tools (Docker), Herd for PHP, latest versions. |
+| `-Yes` | switch | Accept every default: installs everything missing except optional heavy tools (Docker, databases, GUI clients), Herd for PHP, latest versions. |
 | `-MaxRetries` | number (default 4) | Retries per network step. |
 | `-Version` | switch | Print the version and exit. |
 
@@ -40,6 +40,8 @@ Examples:
 | 6 | Node.js (+npm) | `node --version` | `herd node:install` with Herd, otherwise winget `OpenJS.NodeJS.LTS` | |
 | 7 | NestJS CLI | `nest --version` | `npm install -g @nestjs/cli` | Needs Node.js first. |
 | 8 | Docker Desktop | `docker --version` | winget `Docker.DockerDesktop` | **Optional** (question defaults to No, `-Yes` skips it): ~1 GB, needs WSL 2, free for personal use and small companies only. Restart Windows afterwards. |
+| 9 | Databases | Windows service (`postgresql*`, `MySQL*`, `MariaDB*`, `Memurai*`, `MongoDB*`) | official installer via winget, **interactive** | **Optional**, pick any (see [Databases](#databases)). |
+| 10 | DB GUI clients | `winget list` (programs already on the PC) | winget | **Optional**, pick any. |
 
 ## Choosing the PHP environment
 
@@ -51,6 +53,41 @@ If neither Herd nor Laragon is found, it asks:
 4. **Skip**
 
 Choose only one. Herd and Laragon both put their own PHP first in PATH, so having both makes it unclear which `php` runs.
+
+## Databases
+
+Everything is checked **before** anything is downloaded: a database counts as installed when its Windows service exists,
+and a GUI client when `winget list` finds it. Only what is missing is offered.
+
+You pick any number from a list (`1,3`), or press Enter for none. `-Yes` installs none (databases are heavy).
+
+| Database | winget package | Service | Notes |
+|---|---|---|---|
+| PostgreSQL | `PostgreSQL.PostgreSQL.<major>` (18, 17, 16, 15: the ones winget has are offered) | `postgresql-x64-<major>` | You pick the major version |
+| MySQL Community Server | `Oracle.MySQL` | `MySQL<nn>` | Version from the winget list |
+| MariaDB Server | `MariaDB.Server` | `MariaDB` | Version from the winget list |
+| Redis | `Memurai.MemuraiDeveloper` | `Memurai` | Redis has no official Windows build; Memurai Developer is a free Redis-compatible server for development (check its licence) |
+| MongoDB Community Server | `MongoDB.Server` | `MongoDB` | Version from the winget list |
+
+- **Installers run interactively** (`winget --interactive`): the product's own setup window opens, so **you** choose the
+  admin / root password there. The script never sees or stores it.
+- **Lighter on the machine:** database services normally start with Windows and keep using memory. After installing,
+  the script lists the services set to *Automatic* and offers to switch them to **Manual** (one UAC prompt).
+  Start one when you need it, from an admin terminal: `net start <service>`; stop it with `net stop <service>`
+  (or use `services.msc`).
+
+GUI clients you can pick (any or none):
+
+| Client | winget package | Works with |
+|---|---|---|
+| DBeaver Community | `dbeaver.dbeaver` | all of the above |
+| HeidiSQL | `HeidiSQL.HeidiSQL` | MySQL, MariaDB, PostgreSQL |
+| pgAdmin 4 | `PostgreSQL.pgAdmin` | PostgreSQL |
+| MySQL Workbench | `Oracle.MySQLWorkbench` | MySQL |
+| MongoDB Compass | `MongoDB.Compass.Full` (fallback `MongoDB.Compass.Community`) | MongoDB |
+| Redis Insight | `Redis.RedisInsight` | Redis / Memurai |
+
+For a database extension inside the editor instead of (or as well as) a separate app, see the editor tool.
 
 ## Herd path
 
@@ -102,6 +139,11 @@ Other tools read this code (the editor tool runs env when PHP or Node.js is miss
 | Network drops | The script waits for the internet and retries; raise `-MaxRetries` if needed. |
 
 ## Customizing
+
+- Databases: `$Databases` (`Name`, `Winget` or `Lines` + `IdFormat`, `Service` pattern, `Url`, optional `Warning`).
+  Add a new PostgreSQL major to its `Lines` when it ships.
+- GUI clients: `$DbClients` (`Name`, `Winget`, `Url`).
+
 
 All the data is at the top of `setup-dev-env.ps1`.
 

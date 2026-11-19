@@ -7,7 +7,7 @@ Scripts to set up a Windows dev machine for **Laravel + NestJS** (PHP / TypeScri
 
 | Tool | What it does |
 |---|---|
-| [`env/`](env/) | Checks and installs dev tools: Herd/Laragon/PHP, Composer, Git, Node.js, NestJS CLI, Docker |
+| [`env/`](env/) | Checks and installs dev tools: Herd/Laragon/PHP, Composer, Git, Node.js, NestJS CLI, Docker, databases (PostgreSQL, MySQL, MariaDB, Redis, MongoDB) and DB GUI clients |
 | [`editor/`](editor/) | One-click Cursor / VS Code setup with a PhpStorm feel |
 
 **New machine?** Run `env` first, then `editor`. (The editor tool offers to run `env` automatically if PHP or Node.js are missing.)
@@ -117,7 +117,8 @@ Light on the machine first, then on the wallet.
   GitLens code lens is off; the Docker extension is installed only when Docker is on the PC.
   Your own `files.watcherExclude` / `search.exclude` entries are kept.
 - Everything it installs is free. Herd is used in its free edition; no paid feature is required.
-- Heavy or optional tools (Docker Desktop: ~1 GB, needs WSL 2, paid for larger companies) are **opt-in**:
+- Database services can be switched to **Manual start**, so they don't use memory until you start them.
+- Heavy or optional tools (Docker Desktop: ~1 GB, needs WSL 2, paid for larger companies; databases; GUI clients) are **opt-in**:
   the question defaults to No and `-Yes` skips them.
 - Nothing is downloaded before you agree; checks use small API calls.
 - Already-installed tools and extensions are skipped, so re-runs are quick.
