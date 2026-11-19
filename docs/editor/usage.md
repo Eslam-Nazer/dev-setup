@@ -57,3 +57,17 @@ Each one is run once to read its real version. You choose the latest or pick fro
 - `settings.json` and `keybindings.json` are backed up as `*.bak-YYYYMMDD-HHMMSS` before any change.
 - Log: `%LOCALAPPDATA%\dev-ext-installer\install-*.log`.
 - Re-running is safe: installed extensions are skipped and duplicate shortcuts are not added.
+
+## Performance settings
+
+To keep the editor light in Laravel / NestJS projects, the script adds these (your existing entries are kept):
+
+| Setting | Value | Why |
+|---|---|---|
+| `files.watcherExclude` | `vendor`, `node_modules`, `storage`, `bootstrap/cache`, `dist`, `.git/objects` | No file watching in dependency/cache folders |
+| `search.exclude` | `vendor`, `node_modules`, `storage`, `bootstrap/cache`, `dist` | Faster search. Toggle *Use Exclude Settings* in the search panel to search them anyway |
+| `intelephense.files.exclude` | defaults + `storage`, `bootstrap/cache` | `vendor` stays indexed for completion; its tests do not |
+| `jest.runMode` | `on-demand` | Tests run when you ask, not on every save |
+| `gitlens.codeLens.enabled` | `false` | Fewer git calls while typing |
+
+The Docker extension is installed only when `docker` is available on the PC.

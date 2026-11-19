@@ -48,6 +48,9 @@ try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::
 $LogDir  = Join-Path $env:LOCALAPPDATA 'dev-ext-installer'
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 $LogFile = Join-Path $LogDir ("install-{0:yyyyMMdd-HHmmss}.log" -f (Get-Date))
+# Keep the log folder small: this run + the 9 newest older logs of this tool
+Get-ChildItem $LogDir -Filter 'install-*.log' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending |
+    Select-Object -Skip 9 | Remove-Item -Force -ErrorAction SilentlyContinue
 
 function Log([string]$msg, [string]$color = 'Gray') {
     Write-Host $msg -ForegroundColor $color
@@ -116,7 +119,7 @@ $Catalog = @(
     @{ Name = 'Vue (Volar)';                     Ids = @('Vue.volar') }
     @{ Name = 'Tailwind CSS IntelliSense';       Ids = @('bradlc.vscode-tailwindcss') }
     # General
-    @{ Name = 'Docker / Containers';             Ids = @('ms-azuretools.vscode-containers', 'ms-azuretools.vscode-docker', 'docker.docker') }
+    @{ Name = 'Docker / Containers';             Ids = @('ms-azuretools.vscode-containers', 'ms-azuretools.vscode-docker', 'docker.docker'); OnlyIf = 'docker' }
     @{ Name = 'GitLens';                         Ids = @('eamodio.gitlens') }
     @{ Name = 'DotENV';                          Ids = @('mikestead.dotenv') }
     @{ Name = 'EditorConfig';                    Ids = @('EditorConfig.EditorConfig') }
@@ -315,6 +318,13 @@ function Write-Json([string]$Path, $Obj) {
     $json = ConvertTo-Json -InputObject $Obj -Depth 20
     [IO.File]::WriteAllText($Path, $json, (New-Object System.Text.UTF8Encoding($false)))
 }
+function Merge-Prop($Obj, [string]$Name, [hashtable]$Values) {
+    # Add keys to an object-valued setting (e.g. files.watcherExclude) without dropping the user's own keys
+    if (-not $Obj.PSObject.Properties[$Name] -or $null -eq $Obj.$Name -or $Obj.$Name -isnot [pscustomobject]) {
+        Set-Prop $Obj $Name ([pscustomobject]@{})
+    }
+    foreach ($k in $Values.Keys) { if (-not $Obj.$Name.PSObject.Properties[$k]) { Set-Prop $Obj.$Name $k $Values[$k] } }
+}
 function Set-Prop($Obj, [string]$Name, $Value) {
     if ($Obj.PSObject.Properties[$Name]) { $Obj.$Name = $Value }
     else { $Obj | Add-Member -NotePropertyName $Name -NotePropertyValue $Value }
@@ -324,7 +334,15 @@ function Backup([string]$Path) {
         $b = "$Path.bak-{0:yyyyMMdd-HHmmss}" -f (Get-Date)
         Copy-Item $Path $b -Force
         Info "Backup: $b"
+        # keep only the 5 newest backups of this file
+        $leaf = Split-Path $Path -Leaf
+        Get-ChildItem (Split-Path $Path -Parent) -Filter "$leaf.bak-*" -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending | Select-Object -Skip 5 | Remove-Item -Force -ErrorAction SilentlyContinue
     }
+}
+
+function Test-ExtensionInstalled([string]$ExtDir, [string]$ExtId) {
+    return [bool](Get-ChildItem -Path $ExtDir -Directory -Filter "$($ExtId.ToLower())-*" -ErrorAction SilentlyContinue | Select-Object -First 1)
 }
 
 function Get-ExtPackage([string]$ExtDir, [string]$ExtId) {
@@ -645,6 +663,13 @@ foreach ($t in $targets) {
     foreach ($slot in $Catalog) {
         Log ("`n- {0}" -f $slot.Name) 'White'
 
+        # Skip extensions for tools that are not on this machine (saves editor RAM/CPU)
+        if ($slot.OnlyIf -and -not (Get-Command $slot.OnlyIf -ErrorAction SilentlyContinue)) {
+            Info "Skipped: '$($slot.OnlyIf)' is not installed on this PC."
+            $summary += [pscustomobject]@{ Editor = $ed.Label; Extension = ($slot.Ids[0]); Status = "skipped (no $($slot.OnlyIf))" }
+            continue
+        }
+
         $already = $slot.Ids | Where-Object { $installed -contains $_.ToLower() } | Select-Object -First 1
         if ($already) {
             Ok "$already already installed"
@@ -672,10 +697,10 @@ foreach ($t in $targets) {
                 if ($LASTEXITCODE -ne 0) { throw $out.Trim() }
             } "Install $($pick.Id)" $ed.Host | Out-Null
 
-            $now = @(& $ed.Cli --list-extensions 2>$null) | ForEach-Object { $_.Trim().ToLower() }
-            if ($now -contains $pick.Id.ToLower()) {
+            # Verify by looking for the extension folder: no extra editor process (each CLI call costs ~150 MB RAM)
+            if (Test-ExtensionInstalled $ed.ExtDir $pick.Id) {
                 Ok "$($pick.Id) installed and verified"
-                $installed = $now
+                $installed += $pick.Id.ToLower()
                 if ($slot.Role) { $roles[$slot.Role] = $pick.Id }
                 $summary += [pscustomobject]@{ Editor = $ed.Label; Extension = $pick.Id; Status = 'installed' }
             } else {
@@ -736,6 +761,20 @@ foreach ($t in $targets) {
         Set-Prop $s 'window.commandCenter' $true
         Set-Prop $s 'files.autoSave' 'onFocusChange'     # PhpStorm saves automatically
         Set-Prop $s 'editor.linkedEditing' $true
+        # --- Lighter on CPU / disk / RAM -------------------------------------------
+        # Do not watch or index dependency and cache folders (biggest win in Laravel / NestJS projects)
+        $heavyDirs = @{ '**/vendor/**' = $true; '**/node_modules/**' = $true; '**/storage/**' = $true; '**/bootstrap/cache/**' = $true; '**/dist/**' = $true; '**/.git/objects/**' = $true }
+        Merge-Prop $s 'files.watcherExclude' $heavyDirs
+        Merge-Prop $s 'search.exclude' @{ '**/vendor' = $true; '**/node_modules' = $true; '**/storage' = $true; '**/bootstrap/cache' = $true; '**/dist' = $true }
+        if ($installed -contains 'bmewburn.vscode-intelephense-client') {
+            # Intelephense defaults + Laravel cache folders; vendor stays indexed (needed for completion), its tests do not
+            $ex = @('**/.git/**', '**/.svn/**', '**/.hg/**', '**/CVS/**', '**/.DS_Store/**', '**/node_modules/**', '**/bower_components/**',
+                    '**/vendor/**/{Tests,tests}/**', '**/.history/**', '**/vendor/**/vendor/**', '**/storage/**', '**/bootstrap/cache/**')
+            if ($s.PSObject.Properties['intelephense.files.exclude']) { $ex = @(@($s.'intelephense.files.exclude') + $ex | Select-Object -Unique) }
+            Set-Prop $s 'intelephense.files.exclude' $ex
+        }
+        if ($installed -contains 'orta.vscode-jest') { Set-Prop $s 'jest.runMode' 'on-demand' }   # no test runs on every save
+        if ($installed -contains 'eamodio.gitlens') { Set-Prop $s 'gitlens.codeLens.enabled' $false } # fewer git calls while typing
         Set-Prop $s 'php.suggest.basic' $false           # let Intelephense own PHP completion
         Set-Prop $s 'intelephense.format.enable' $false  # Pint handles PHP formatting
         if ($installed -contains 'open-southeners.laravel-pint') {

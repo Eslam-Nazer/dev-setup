@@ -15,6 +15,13 @@ Write new entries under **[Unreleased]**; `build/bump-version.ps1` moves them in
 - `docs/architecture.md` (how the repo is organized, adding a tool), `docs/env/usage.md`
 - MIT license
 
+### Changed
+- `editor/`: verifies installs by checking the extension folder instead of calling the editor CLI after each one (much less RAM/CPU)
+- `editor/`: lighter editor settings: no file watching / search in vendor, node_modules, storage, bootstrap/cache, dist; Jest on demand; GitLens code lens off; Intelephense skips Laravel cache folders
+- `editor/`: the Docker extension is installed only when Docker is installed
+- Docker Desktop is optional: its question defaults to No and `-Yes` skips it (shows size, WSL 2 and licence notes first)
+- Logs: only the 10 newest per tool are kept; settings backups: only the 5 newest per file
+
 ### Fixed
 - Questions no longer loop forever when console input is closed; summary table prints in narrow / redirected consoles
 

@@ -21,7 +21,7 @@
   Run:  powershell -NoProfile -ExecutionPolicy Bypass -File .\setup-dev-env.ps1
   Options:
     -CheckOnly   report what is installed / missing, install nothing
-    -Yes         accept every default (installs everything missing, Herd for PHP)
+    -Yes         accept every default (installs everything missing except optional heavy tools like Docker; Herd for PHP)
     -MaxRetries  retries per network step (default 4)
     -Version     print the version and exit
 
@@ -46,6 +46,9 @@ try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::
 $LogDir  = Join-Path $env:LOCALAPPDATA 'dev-ext-installer'
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 $LogFile = Join-Path $LogDir ("env-{0:yyyyMMdd-HHmmss}.log" -f (Get-Date))
+# Keep the log folder small: this run + the 9 newest older logs of this tool
+Get-ChildItem $LogDir -Filter 'env-*.log' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending |
+    Select-Object -Skip 9 | Remove-Item -Force -ErrorAction SilentlyContinue
 
 function Log([string]$msg, [string]$color = 'Gray') {
     Write-Host $msg -ForegroundColor $color
@@ -174,6 +177,8 @@ function Find-Laragon {
 #   Needs    key of a tool that must be present first
 #   Url      manual download page, shown when it cannot be installed
 #   Note     shown after installing
+#   Optional heavy or not always needed: the install question defaults to No
+#   Warning  shown before asking (size, licence, requirements)
 # ---------------------------------------------------------------------------
 $PhpEnvs = @(
     @{ Key = 'herd';    Name = 'Laravel Herd'; Detect = { Find-Herd };    Winget = @('BeyondCode.Herd', 'Laravel.Herd'); Url = 'https://herd.laravel.com/windows' }
@@ -186,6 +191,8 @@ $Tools = @(
     @{ Key = 'node';     Name = 'Node.js LTS (+npm)'; Detect = { Get-CmdVersion node };     Winget = @('OpenJS.NodeJS.LTS'); Url = 'https://nodejs.org/' }
     @{ Key = 'nest';     Name = 'NestJS CLI';         Detect = { Get-CmdVersion nest };     Npm = '@nestjs/cli'; Needs = 'node' }
     @{ Key = 'docker';   Name = 'Docker Desktop';     Detect = { Get-CmdVersion docker };   Winget = @('Docker.DockerDesktop'); Url = 'https://www.docker.com/products/docker-desktop/'
+       Optional = $true
+       Warning = 'Heavy: ~1 GB download, needs WSL 2 and uses RAM while running. Free for personal use and small companies; larger companies need a paid Docker subscription.'
        Note = 'Docker Desktop needs WSL 2 / virtualization. Restart Windows, then open Docker Desktop once.' }
 )
 
@@ -501,7 +508,9 @@ foreach ($t in $Tools) {
         Add-Result $t.Name 'MISSING' $(if ($t.Url) { $t.Url } else { "npm i -g $($t.Npm)" })
         continue
     }
-    if (-not (Ask-YesNo "$($t.Name) is not installed. Install it?" $true)) {
+    if ($t.Warning) { Warn $t.Warning }
+    $q = if ($t.Optional) { "$($t.Name) is not installed. Install it? (optional)" } else { "$($t.Name) is not installed. Install it?" }
+    if (-not (Ask-YesNo $q (-not $t.Optional))) {
         Info "Skipped $($t.Name)."
         Add-Result $t.Name 'skipped' ''
         continue

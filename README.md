@@ -106,6 +106,23 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\editor\setup-dev-extension
 
 ---
 
+## Lightweight by design
+
+Light on the machine first, then on the wallet.
+
+- **The scripts themselves**: installs are verified by checking the extension folder, not by starting the editor again
+  (each editor CLI call costs ~150 MB RAM); waits for the internet with one small request every 10 s.
+- **The editor afterwards**: `vendor`, `node_modules`, `storage`, `bootstrap/cache`, `dist` are not watched or searched
+  (the biggest CPU/disk saver in Laravel / NestJS projects); Jest runs tests on demand, not on every save;
+  GitLens code lens is off; the Docker extension is installed only when Docker is on the PC.
+  Your own `files.watcherExclude` / `search.exclude` entries are kept.
+- Everything it installs is free. Herd is used in its free edition; no paid feature is required.
+- Heavy or optional tools (Docker Desktop: ~1 GB, needs WSL 2, paid for larger companies) are **opt-in**:
+  the question defaults to No and `-Yes` skips them.
+- Nothing is downloaded before you agree; checks use small API calls.
+- Already-installed tools and extensions are skipped, so re-runs are quick.
+- Housekeeping: only the 10 newest logs per tool and the 5 newest `settings.json` / `keybindings.json` backups are kept.
+
 ## License
 
 MIT, see [LICENSE](LICENSE).

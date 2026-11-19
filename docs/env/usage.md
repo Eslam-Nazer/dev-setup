@@ -14,7 +14,7 @@ Or double-click the `.bat` launcher in `env\`.
 | Option | Values | Meaning |
 |---|---|---|
 | `-CheckOnly` | switch | Report what is installed or missing; install nothing. |
-| `-Yes` | switch | Accept every default (installs everything missing, Herd for PHP, latest versions). |
+| `-Yes` | switch | Accept every default: installs everything missing except optional heavy tools (Docker), Herd for PHP, latest versions. |
 | `-MaxRetries` | number (default 4) | Retries per network step. |
 | `-Version` | switch | Print the version and exit. |
 
@@ -39,7 +39,7 @@ Examples:
 | 5 | Git | `git --version` | winget `Git.Git` | |
 | 6 | Node.js (+npm) | `node --version` | `herd node:install` with Herd, otherwise winget `OpenJS.NodeJS.LTS` | |
 | 7 | NestJS CLI | `nest --version` | `npm install -g @nestjs/cli` | Needs Node.js first. |
-| 8 | Docker Desktop | `docker --version` | winget `Docker.DockerDesktop` | Needs WSL 2; restart Windows afterwards. |
+| 8 | Docker Desktop | `docker --version` | winget `Docker.DockerDesktop` | **Optional** (question defaults to No, `-Yes` skips it): ~1 GB, needs WSL 2, free for personal use and small companies only. Restart Windows afterwards. |
 
 ## Choosing the PHP environment
 
