@@ -16,4 +16,5 @@ Write new entries under **[Unreleased]**; `build/bump-version.ps1` moves them in
 - Settings source choice: PhpStorm, VS Code, or the values saved in the script
 - Questions for the color theme and the PHP interpreter (latest or pick a version)
 - Double Shift search, breadcrumbs nav bar, new file at path, JetBrains icons, Claude Code
-- `-Version` flag, release workflow, CI checks, `build/bump-version.ps1`
+- `-Version` flag, CI checks, `build/bump-version.ps1`
+- Automatic releases: a new `$ScriptVersion` on main creates the tag and the GitHub Release

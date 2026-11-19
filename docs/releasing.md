@@ -29,26 +29,27 @@ Add a line under `## [Unreleased]` in `CHANGELOG.md` with each change (`### Adde
 ## Cutting a release
 
 ```powershell
-.\build\bump-version.ps1 -Version 0.2.0 -Tag
-git push --follow-tags
+.\build\bump-version.ps1 -Version 0.2.0 -Commit
+git push
 ```
 
-`bump-version.ps1` sets `$ScriptVersion` in every tool script, moves the Unreleased notes under `## [0.2.0] - <date>`,
-commits `Release v0.2.0` and creates the annotated tag `v0.2.0`. Run it without `-Tag` to only edit the files.
+`bump-version.ps1` sets `$ScriptVersion` in every tool script, moves the Unreleased notes under `## [0.2.0] - <date>`
+and commits `Release v0.2.0`. Run it without `-Commit` to only edit the files.
 
-Pushing the tag runs `.github/workflows/release.yml`, which:
+You never push tags. On every push to `main`, `.github/workflows/release.yml` reads `$ScriptVersion`;
+if there is no GitHub Release for that version yet, it:
 
-1. Fails if any `$ScriptVersion` or the CHANGELOG does not match the tag
+1. Fails if the tool scripts disagree on the version or the CHANGELOG has no section for it
 2. Runs PSScriptAnalyzer (errors only)
 3. Builds `dev-setup-<tool>-v0.2.0.zip` for each tool folder (script + its docs + README + CHANGELOG + LICENSE)
-4. Publishes a GitHub Release with those zips, unversioned copies of each script, and the CHANGELOG section as notes
+4. Creates the tag `v0.2.0` at that commit and publishes the GitHub Release with the zips,
+   unversioned copies of each script, and the CHANGELOG section as notes
 
-If the workflow fails, fix the problem, then move the tag:
+Pushes that do not change the version are skipped, so normal commits never create releases.
+You can also run the workflow by hand from the Actions tab, or push a tag `vX.Y.Z` yourself; the tag must match `$ScriptVersion`.
 
-```powershell
-git tag -d v0.2.0; git push origin :refs/tags/v0.2.0
-git tag -a v0.2.0 -m v0.2.0; git push --follow-tags
-```
+If a release goes wrong, delete it and its tag on GitHub (Releases → the release → Delete, and Tags → delete),
+fix the problem, then push again or re-run the workflow.
 
 ## How people download it
 

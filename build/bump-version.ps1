@@ -2,19 +2,20 @@
   build/bump-version.ps1
   Prepare a release: sets $ScriptVersion in every tool script, turns the
   "## [Unreleased]" part of CHANGELOG.md into "## [X.Y.Z] - date",
-  and (with -Tag) commits and creates the annotated git tag vX.Y.Z.
+  and (with -Commit) commits "Release vX.Y.Z".
 
   Usage (from the repo root):
-    .\build\bump-version.ps1 -Version 0.2.0            # edit files only
-    .\build\bump-version.ps1 -Version 0.2.0 -Tag       # edit + commit + tag
-    .\build\bump-version.ps1 -Version 0.3.0-beta.1 -Tag   # pre-release
+    .\build\bump-version.ps1 -Version 0.2.0               # edit files only
+    .\build\bump-version.ps1 -Version 0.2.0 -Commit       # edit + commit
+    .\build\bump-version.ps1 -Version 0.3.0-beta.1 -Commit   # pre-release
 
-  Then publish:  git push --follow-tags
+  Then publish:  git push
+  The Release workflow sees the new version on main, creates tag vX.Y.Z and the GitHub Release.
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$Version,
-    [switch]$Tag
+    [switch]$Commit
 )
 $ErrorActionPreference = 'Stop'
 
@@ -24,11 +25,12 @@ if ($Version -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z\.-]+)?$') {
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
-if ($Tag) {
+if ($Commit) {
     $dirty = git status --porcelain
-    if ($dirty) { throw "Working tree has uncommitted changes. Commit them first, then run with -Tag." }
-    if (git tag --list "v$Version") { throw "Tag v$Version already exists." }
+    if ($dirty) { throw "Working tree has uncommitted changes. Commit them first, then run with -Commit." }
 }
+git fetch --tags --quiet 2>$null
+if (git tag --list "v$Version") { throw "Version $Version was already released (tag v$Version exists)." }
 
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 
@@ -59,11 +61,11 @@ if ($text -match "(?m)^## \[$([regex]::Escape($Version))\]") {
     throw "CHANGELOG.md has no '## [Unreleased]' section."
 }
 
-if ($Tag) {
+if ($Commit) {
     git add -A
     git commit -m "Release v$Version"
-    git tag -a "v$Version" -m "v$Version"
-    Write-Host "`nCreated commit and tag v$Version. Publish with:  git push --follow-tags" -ForegroundColor Cyan
+    Write-Host "`nCommitted 'Release v$Version'. Publish with:  git push" -ForegroundColor Cyan
 } else {
-    Write-Host "`nReview the changes, then:  git commit -am 'Release v$Version'; git tag -a v$Version -m v$Version; git push --follow-tags" -ForegroundColor Cyan
+    Write-Host "`nReview the changes, then:  git commit -am 'Release v$Version'; git push" -ForegroundColor Cyan
 }
+Write-Host "The Release workflow will create tag v$Version and the GitHub Release." -ForegroundColor Cyan

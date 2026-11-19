@@ -1,12 +1,21 @@
 name: Release
 
-# Push a tag like v0.2.0 (or v0.2.0-beta.1 for a pre-release) to publish a GitHub Release.
+# Releases happen automatically: when a push to main carries a version
+# ($ScriptVersion in the tool scripts) that has no GitHub Release yet,
+# this workflow checks it, creates the tag vX.Y.Z and publishes the release.
+# Pushing a tag vX.Y.Z by hand or running it manually works too.
 on:
   push:
+    branches: [main]
     tags: ['v*.*.*']
+  workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -14,28 +23,48 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check versions match the tag
+      - name: Read version
+        id: ver
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "${{ github.ref_name }}".TrimStart('v')
-          $bad = @()
-          $found = 0
+          $versions = @{}
           Get-ChildItem -Recurse -Filter *.ps1 | Where-Object { $_.FullName -notmatch '[\\/](build|\.github)[\\/]' } | ForEach-Object {
             $m = Select-String -Path $_.FullName -Pattern "^\`$ScriptVersion\s*=\s*'([^']+)'" | Select-Object -First 1
-            if ($m) {
-              $found++
-              $v = $m.Matches[0].Groups[1].Value
-              if ($v -ne $tag) { $bad += "$($_.Name) says $v" }
-            }
+            if ($m) { $versions[$_.Name] = $m.Matches[0].Groups[1].Value }
           }
-          if ($found -eq 0) { $bad += 'No $ScriptVersion found in any tool script' }
-          if (-not (Select-String -Path CHANGELOG.md -Pattern "^## \[$([regex]::Escape($tag))\]" -Quiet)) {
-            $bad += "CHANGELOG.md has no '## [$tag]' section"
+          if ($versions.Count -eq 0) { Write-Host '::error::No $ScriptVersion found in any tool script'; exit 1 }
+          $unique = @($versions.Values | Sort-Object -Unique)
+          if ($unique.Count -gt 1) {
+            $versions.GetEnumerator() | ForEach-Object { Write-Host "::error::$($_.Key) says $($_.Value)" }
+            Write-Host '::error::Tool scripts disagree on the version; run build/bump-version.ps1'
+            exit 1
           }
-          if ($bad) { $bad | ForEach-Object { Write-Host "::error::$_" }; exit 1 }
-          Write-Host "All versions are $tag"
+          $v = $unique[0]
+          if ("${{ github.ref_type }}" -eq 'tag' -and "${{ github.ref_name }}".TrimStart('v') -ne $v) {
+            Write-Host "::error::Tag ${{ github.ref_name }} does not match `$ScriptVersion $v"; exit 1
+          }
+          $tag = "v$v"
+          gh release view $tag -R "${{ github.repository }}" *> $null
+          $exists = $LASTEXITCODE -eq 0
+          $global:LASTEXITCODE = 0
+          if ($exists) { Write-Host "Release $tag already exists; nothing to do." } else { Write-Host "Will release $tag" }
+          "version=$v"   >> $env:GITHUB_OUTPUT
+          "tag=$tag"     >> $env:GITHUB_OUTPUT
+          "skip=$($exists.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+
+      - name: Check CHANGELOG has this version
+        if: steps.ver.outputs.skip != 'true'
+        shell: pwsh
+        run: |
+          $v = '${{ steps.ver.outputs.version }}'
+          if (-not (Select-String -Path CHANGELOG.md -Pattern "^## \[$([regex]::Escape($v))\]" -Quiet)) {
+            Write-Host "::error::CHANGELOG.md has no '## [$v]' section"; exit 1
+          }
 
       - name: Lint (PSScriptAnalyzer, errors only)
+        if: steps.ver.outputs.skip != 'true'
         shell: pwsh
         run: |
           Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
@@ -44,9 +73,10 @@ jobs:
           if ($issues) { exit 1 }
 
       - name: Package tools
+        if: steps.ver.outputs.skip != 'true'
         shell: pwsh
         run: |
-          $v = "${{ github.ref_name }}"
+          $v = '${{ steps.ver.outputs.tag }}'
           New-Item -ItemType Directory -Force dist | Out-Null
           # A tool = top-level folder that contains a .ps1 script
           $tools = Get-ChildItem -Directory | Where-Object {
@@ -66,26 +96,29 @@ jobs:
           Get-ChildItem dist -File | Format-Table Name, Length
 
       - name: Release notes from CHANGELOG
+        if: steps.ver.outputs.skip != 'true'
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}".TrimStart('v')
+          $v = '${{ steps.ver.outputs.version }}'
           $out = @(); $in = $false
           foreach ($l in Get-Content CHANGELOG.md) {
             if ($l -match '^## \[') {
               if ($in) { break }
-              if ($l -match "^## \[$([regex]::Escape($tag))\]") { $in = $true; continue }
+              if ($l -match "^## \[$([regex]::Escape($v))\]") { $in = $true; continue }
             }
             if ($in) { $out += $l }
           }
           ($out -join "`n").Trim() | Set-Content dist/notes.md -Encoding utf8
 
-      - name: Publish GitHub Release
+      - name: Tag and publish GitHub Release
+        if: steps.ver.outputs.skip != 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "${{ github.ref_name }}"
+          $tag = '${{ steps.ver.outputs.tag }}'
           $files = Get-ChildItem dist -File | Where-Object { $_.Extension -in '.zip', '.ps1', '.bat' } | ForEach-Object { $_.FullName }
           $extra = @()
           if ($tag -match '-') { $extra += '--prerelease' }
-          gh release create $tag @files --title "dev-setup $tag" --notes-file dist/notes.md @extra
+          # Creates the tag at this commit if it does not exist yet
+          gh release create $tag @files --target "${{ github.sha }}" --title "dev-setup $tag" --notes-file dist/notes.md @extra

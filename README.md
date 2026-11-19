@@ -79,4 +79,4 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\editor\setup-dev-extension
 ## Versions and releases
 
 - [Changelog](CHANGELOG.md)
-- [How versions and releases work](docs/releasing.md): `.\build\bump-version.ps1 -Version X.Y.Z -Tag` then `git push --follow-tags`
+- [How versions and releases work](docs/releasing.md): `.\build\bump-version.ps1 -Version X.Y.Z -Commit` then `git push` (the workflow tags and releases)
