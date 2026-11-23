@@ -216,6 +216,8 @@ function Find-Laragon {
 #   Winget   winget package ids, tried in order (the first that exists is used)
 #   Npm      global npm package (instead of winget)
 #   Needs    key of a tool that must be present first
+#   Direct   official installer URL + silent args, for tools that have no winget package
+#            (downloaded to TEMP, Authenticode signature must be valid before it runs)
 #   Url      manual download page, shown when it cannot be installed
 #   Note     shown after installing
 #   Optional heavy or not always needed: the install question defaults to No
@@ -227,7 +229,9 @@ $PhpEnvs = @(
 )
 $Tools = @(
     @{ Key = 'php';      Name = 'PHP';                Detect = { Get-CmdVersion php };      Bundled = $true }
-    @{ Key = 'composer'; Name = 'Composer';           Detect = { Get-CmdVersion composer }; Winget = @('Composer.Composer'); Needs = 'php'; Url = 'https://getcomposer.org/download/' }
+    @{ Key = 'composer'; Name = 'Composer';           Detect = { Get-CmdVersion composer }; Needs = 'php'; Url = 'https://getcomposer.org/download/'
+       # Composer has no winget package; its official Windows installer is used (signature checked before running)
+       Direct = @{ Url = 'https://getcomposer.org/Composer-Setup.exe'; Args = '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART' } }
     @{ Key = 'git';      Name = 'Git';                Detect = { Get-CmdVersion git };      Winget = @('Git.Git'); Url = 'https://git-scm.com/download/win' }
     @{ Key = 'node';     Name = 'Node.js LTS (+npm)'; Detect = { Get-CmdVersion node };     Winget = @('OpenJS.NodeJS.LTS'); Url = 'https://nodejs.org/' }
     @{ Key = 'nest';     Name = 'NestJS CLI';         Detect = { Get-CmdVersion nest };     Npm = '@nestjs/cli'; Needs = 'node' }
@@ -325,7 +329,26 @@ function Get-NodeLtsVersions {
     } catch { return @() }
 }
 
+function Install-Direct($tool) {
+    # Official installer for tools without a winget package. The file must carry a valid Authenticode signature.
+    $file = Join-Path $env:TEMP (Split-Path $tool.Direct.Url -Leaf)
+    Info "Downloading the official $($tool.Name) installer: $($tool.Direct.Url)"
+    Invoke-WithRetry { Invoke-WebRequest -Uri $tool.Direct.Url -OutFile $file -UseBasicParsing -TimeoutSec 120 -ErrorAction Stop } "Download $($tool.Name)" ([uri]$tool.Direct.Url).Host
+    $sig = Get-AuthenticodeSignature -FilePath $file
+    if ($sig.Status -ne 'Valid') {
+        Err "The $($tool.Name) installer signature is '$($sig.Status)'; not running it. Install it from $($tool.Url)"
+        Remove-Item $file -Force -ErrorAction SilentlyContinue
+        return $false
+    }
+    Info "Signature OK ($($sig.SignerCertificate.Subject)). Running the installer..."
+    $p = Start-Process -FilePath $file -ArgumentList $tool.Direct.Args -Wait -PassThru
+    Remove-Item $file -Force -ErrorAction SilentlyContinue
+    if ($p.ExitCode -ne 0) { Err "$($tool.Name) installer exit code $($p.ExitCode)"; return $false }
+    return $true
+}
+
 function Install-Tool($tool) {
+    if ($tool.Direct -and -not $tool.Winget) { return (Install-Direct $tool) }
     if ($tool.Npm) {
         $v = Select-Version $tool.Name (Get-NpmVersions $tool.Npm)
         $spec = if ($v) { "$($tool.Npm)@$v" } else { $tool.Npm }
@@ -561,12 +584,12 @@ $Databases = @(
     @{ Name = 'MongoDB Community Server';   Winget = @('MongoDB.Server');        Service = 'MongoDB*';  Url = 'https://www.mongodb.com/try/download/community' }
 )
 $DbClients = @(
-    @{ Name = 'DBeaver Community  (all databases)';               Winget = @('dbeaver.dbeaver');          Url = 'https://dbeaver.io/download/' }
+    @{ Name = 'DBeaver Community  (all databases)';               Winget = @('DBeaver.DBeaver.Community', 'dbeaver.dbeaver'); Url = 'https://dbeaver.io/download/' }
     @{ Name = 'HeidiSQL           (MySQL, MariaDB, PostgreSQL)';  Winget = @('HeidiSQL.HeidiSQL');        Url = 'https://www.heidisql.com/download.php' }
     @{ Name = 'pgAdmin 4          (PostgreSQL)';                  Winget = @('PostgreSQL.pgAdmin');       Url = 'https://www.pgadmin.org/download/' }
     @{ Name = 'MySQL Workbench    (MySQL)';                       Winget = @('Oracle.MySQLWorkbench');    Url = 'https://dev.mysql.com/downloads/workbench/' }
     @{ Name = 'MongoDB Compass    (MongoDB)';                     Winget = @('MongoDB.Compass.Full', 'MongoDB.Compass.Community'); Url = 'https://www.mongodb.com/try/download/compass' }
-    @{ Name = 'Redis Insight      (Redis)';                       Winget = @('Redis.RedisInsight');       Url = 'https://redis.io/insight/' }
+    @{ Name = 'Redis Insight      (Redis)';                       Winget = @('RedisInsight.RedisInsight', 'Redis.RedisInsight'); Url = 'https://redis.io/insight/' }
 )
 
 function Test-WingetInstalled([string[]]$Ids) {
@@ -752,6 +775,14 @@ function Invoke-DryRun {
             Ok ("{0,-28} {1}{2}" -f $slot.Name, $hit, $note)
         } elseif ($allMissing) { Err ("{0,-28} none of: {1}" -f $slot.Name, ($slot.Ids -join ', ')); $bad++ }
         else { Warn ("{0,-28} could not be checked" -f $slot.Name) }
+    }
+
+    Step 'Dry run: official installers (no winget package)'
+    foreach ($t in $Tools | Where-Object { $_.Direct }) {
+        try {
+            $null = Invoke-WithRetry { Invoke-WebRequest -Uri $t.Direct.Url -Method Head -UseBasicParsing -TimeoutSec 30 -ErrorAction Stop } "Check $($t.Direct.Url)" ([uri]$t.Direct.Url).Host
+            Ok ("{0,-28} {1}" -f $t.Name, $t.Direct.Url)
+        } catch { Err ("{0,-28} {1} not reachable" -f $t.Name, $t.Direct.Url); $bad++ }
     }
 
     Step 'Dry run: npm packages'
