@@ -4,9 +4,11 @@
 
   Questions it asks (press Enter for the default):
     1. Install into Cursor, VS Code, or both?
-    2. Take your settings from: PhpStorm on this PC / VS Code on this PC / the values saved in this script?
+    2. Take your settings from: PhpStorm on this PC / VS Code on this PC / neutral recommended defaults / author's preset?
     3. Change the color theme? (yes / no)
     4. Set the PHP interpreter? -> use the latest PHP found, or pick a version from the list?
+    5. Apply performance settings? Recommended editor settings? PhpStorm-style shortcuts? JetBrains icons?
+    6. Add a database extension? (pick any or none)
 
   What it does:
   - Checks every extension exists in the right registry (Open VSX for Cursor, Marketplace for VS Code)
@@ -21,8 +23,10 @@
   - Backs up settings.json / keybindings.json before touching them
 
   Run:  powershell -NoProfile -ExecutionPolicy Bypass -File .\setup-dev-extensions.ps1
-  Optional: -Target cursor|code|both  -Source phpstorm|vscode|builtin  -Yes (accept all defaults)
+  Optional: -Target cursor|code|both  -Source phpstorm|vscode|recommended|author  -Yes (accept all defaults)
             -MaxRetries 8  -SkipSettings  -SkipEnvCheck  -Version
+            -DryRun   check that every extension exists and is not deprecated; installs and changes nothing
+            -Restore  put back settings.json / keybindings.json from one of the backups this script made
 
   It also asks whether to add a database extension (Database Client, SQLTools, MongoDB); pick any or none.
 
@@ -32,22 +36,25 @@
 [CmdletBinding()]
 param(
     [ValidateSet('', 'cursor', 'code', 'both')][string]$Target = '',
-    [ValidateSet('', 'phpstorm', 'vscode', 'builtin')][string]$Source = '',
+    [ValidateSet('', 'phpstorm', 'vscode', 'recommended', 'author', 'builtin')][string]$Source = '',
     [int]$MaxRetries = 8,
     [switch]$SkipSettings,
     [switch]$Yes,
     [switch]$SkipEnvCheck,
+    [switch]$DryRun,
+    [switch]$Restore,
     [switch]$Version
 )
 
 # Bumped by build/bump-version.ps1; must match the git tag (vX.Y.Z) on release.
 $ScriptVersion = '0.2.2'
 if ($Version) { Write-Output "setup-dev-extensions $ScriptVersion"; return }
+if ($Source -eq 'builtin') { $Source = 'author' }   # old name
 
 $ErrorActionPreference = 'Continue'
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
 
-$LogDir  = Join-Path $env:LOCALAPPDATA 'dev-ext-installer'
+$LogDir  = Join-Path $env:LOCALAPPDATA 'dev-setup'
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 $LogFile = Join-Path $LogDir ("install-{0:yyyyMMdd-HHmmss}.log" -f (Get-Date))
 # Keep the log folder small: this run + the 9 newest older logs of this tool
@@ -176,13 +183,22 @@ $Catalog = @(
 )
 
 # ---------------------------------------------------------------------------
-# Values saved in this script (used when you pick "saved values")
-# Taken from your PhpStorm 2026.3 setup.
+# Presets (used when you pick them as the settings source)
+#   Recommended: neutral; keeps your theme, layout and shortcuts as they are
+#   Author:      the author's own setup (from his PhpStorm 2026.3); optional
 # ---------------------------------------------------------------------------
-$SavedDefaults = @{
+$RecommendedPreset = @{
+    ColorScheme = $null
+    ThemeExtIds = @()
+    BaseKeymap  = 'VSCode'
+    Compact     = $false
+    SmoothCaret = $false
+    Shortcuts   = @()
+}
+$AuthorPreset = @{
     ColorScheme = 'poimandres'
     ThemeExtIds = @('pmndrs.pmndrs')
-    BaseKeymap  = 'VSCode'          # your PhpStorm keymap is "VSCode copy"
+    BaseKeymap  = 'VSCode'          # PhpStorm keymap "VSCode copy"
     Compact     = $true
     SmoothCaret = $true
     Shortcuts   = @(@{ Action = 'Terminal.CommandCompletion.Invoke'; First = 'ctrl space'; Second = '' })
@@ -510,14 +526,14 @@ function Get-VsCodeProfile {
     return $p
 }
 
-function Get-SavedProfile {
-    $p = New-Profile 'saved values'
-    $p.ColorScheme = $SavedDefaults.ColorScheme
-    $p.ThemeExtIds = $SavedDefaults.ThemeExtIds
-    $p.BaseKeymap  = $SavedDefaults.BaseKeymap
-    $p.Compact     = $SavedDefaults.Compact
-    $p.SmoothCaret = $SavedDefaults.SmoothCaret
-    $p.Shortcuts   = @($SavedDefaults.Shortcuts | ForEach-Object { [pscustomobject]$_ })
+function Get-PresetProfile([hashtable]$Preset, [string]$Name) {
+    $p = New-Profile $Name
+    $p.ColorScheme = $Preset.ColorScheme
+    $p.ThemeExtIds = @($Preset.ThemeExtIds)
+    $p.BaseKeymap  = $Preset.BaseKeymap
+    $p.Compact     = $Preset.Compact
+    $p.SmoothCaret = $Preset.SmoothCaret
+    $p.Shortcuts   = @($Preset.Shortcuts | ForEach-Object { [pscustomobject]$_ })
     return $p
 }
 
@@ -569,6 +585,66 @@ if (-not $Target) {
     $Target = @('cursor', 'code', 'both')[$c - 1]
 }
 $targets = if ($Target -eq 'both') { @('cursor', 'code') } else { @($Target) }
+
+# ---------------------------------------------------------------------------
+# -DryRun: check every extension in the catalogue (existence + deprecation); change nothing
+# ---------------------------------------------------------------------------
+if ($DryRun) {
+    $slots = @($Catalog)
+    foreach ($c in $DbExtensionChoices) {
+        $slots += @{ Name = "Database: $(($c.Name -split '\s{2,}')[0])"; Ids = $c.Ids }
+        foreach ($w in @($c.With)) { if ($w) { $slots += @{ Name = "Database: $w"; Ids = @($w) } } }
+    }
+    foreach ($k in $ThemeMap.Keys) { $slots += @{ Name = "Theme for '$k'"; Ids = $ThemeMap[$k] } }
+    $bad = 0
+    foreach ($t in $targets) {
+        $ed = $Editors[$t]
+        Step "Dry run: $($ed.Label) ($($ed.Registry))"
+        Wait-ForInternet $ed.Host
+        foreach ($slot in $slots) {
+            $pick = Resolve-Slot $slot $ed.Registry
+            if ($pick) {
+                $note = if ($pick.Id -ne $slot.Ids[0]) { "  (fallback for $($slot.Ids[0]))" } else { '' }
+                Ok ("{0,-34} {1} v{2}{3}" -f $slot.Name, $pick.Id, $pick.Version, $note)
+            } else { Err ("{0,-34} none of: {1}" -f $slot.Name, ($slot.Ids -join ', ')); $bad++ }
+        }
+    }
+    Step 'Dry run summary'
+    if ($bad) { Err "$bad extension slot(s) have no usable extension. Nothing was installed or changed."; exit 2 }
+    Ok 'Every extension exists and is not deprecated. Nothing was installed or changed.'
+    exit 0
+}
+
+# ---------------------------------------------------------------------------
+# -Restore: put back settings.json / keybindings.json from a backup made by this script
+# ---------------------------------------------------------------------------
+if ($Restore) {
+    foreach ($t in $targets) {
+        $ed = $Editors[$t]
+        Step "Restore: $($ed.Label)"
+        $baks = @(Get-ChildItem $ed.UserDir -File -Filter '*.json.bak-*' -ErrorAction SilentlyContinue |
+                  Where-Object { $_.Name -match '^(settings|keybindings)\.json\.bak-(\d{8}-\d{6})$' })
+        if (-not $baks.Count) { Warn "No backups found in $($ed.UserDir)."; continue }
+        $stamps = @($baks | ForEach-Object { ($_.Name -split '\.bak-')[1] } | Sort-Object -Unique -Descending)
+        $labels = @(foreach ($st in $stamps) {
+            $d = [datetime]::ParseExact($st, 'yyyyMMdd-HHmmss', $null)
+            $files = @($baks | Where-Object { $_.Name -like "*.bak-$st" } | ForEach-Object { ($_.Name -split '\.json')[0] })
+            "{0:yyyy-MM-dd HH:mm:ss}  ({1})" -f $d, ($files -join ', ')
+        })
+        $i = Ask-Choice 'Restore which backup? (newest first)' $labels 1
+        $stamp = $stamps[$i - 1]
+        foreach ($name in 'settings', 'keybindings') {
+            $bak = Join-Path $ed.UserDir "$name.json.bak-$stamp"
+            if (-not (Test-Path $bak)) { continue }
+            $cur = Join-Path $ed.UserDir "$name.json"
+            if (Test-Path $cur) { Copy-Item $cur "$cur.before-restore-$(Get-Date -Format yyyyMMdd-HHmmss)" -Force }
+            Copy-Item $bak $cur -Force
+            Ok "$name.json restored from $stamp (the current one was kept as $name.json.before-restore-*)"
+        }
+    }
+    Info 'Extensions were not removed. Restart the editor to load the restored settings.'
+    exit 0
+}
 
 # ---------------------------------------------------------------------------
 # Dev tools check: offer to run the "env" tool when PHP or Node.js is missing
@@ -626,6 +702,7 @@ if (-not $SkipEnvCheck) {
 $Prof = $null
 $ApplyTheme = $false
 $PhpPick = $null
+$ApplyPerf = $false; $ApplyPrefs = $false; $ApplyShortcuts = $false; $ApplyIcons = $true
 
 if (-not $SkipSettings) {
     Step 'Settings source'
@@ -635,14 +712,20 @@ if (-not $SkipSettings) {
     $opts = @(); $keys = @()
     if ($psProf) { $opts += "PhpStorm on this PC  ($(Split-Path $psProf.Dir -Leaf): keymap, your shortcuts, theme, UI, PHP)"; $keys += 'phpstorm' }
     if ($vsProf) { $opts += "VS Code on this PC   (copy its settings.json + keybindings.json into Cursor)"; $keys += 'vscode' }
-    $opts += "Saved values in this script  (poimandres theme, compact UI, VS Code keymap + Double Shift)"; $keys += 'builtin'
+    $opts += "Recommended defaults  (neutral: keeps your theme, layout and shortcuts)"; $keys += 'recommended'
+    $opts += "Author's preset       (poimandres theme, compact tabs, smooth caret)"; $keys += 'author'
 
     $pick = $Source
     if (-not $pick -or $keys -notcontains $pick) {
         if ($Source) { Warn "Source '$Source' is not available on this PC." }
         $pick = $keys[(Ask-Choice 'Where should I take your editor settings from?' $opts 1) - 1]
     }
-    $Prof = switch ($pick) { 'phpstorm' { $psProf } 'vscode' { $vsProf } default { Get-SavedProfile } }
+    $Prof = switch ($pick) {
+        'phpstorm' { $psProf }
+        'vscode'   { $vsProf }
+        'author'   { Get-PresetProfile $AuthorPreset "author's preset" }
+        default    { Get-PresetProfile $RecommendedPreset 'recommended defaults' }
+    }
     Ok "Using settings from: $($Prof.Source)"
     if ($Prof.Dir) { Info "Folder: $($Prof.Dir)" }
     if ($Prof.Source -eq 'PhpStorm') {
@@ -682,6 +765,13 @@ if (-not $SkipSettings) {
     } else {
         Info 'No PHP interpreter found (PhpStorm, Herd or PATH); skipping PHP setting.'
     }
+
+    # Opinionated settings: ask instead of applying silently
+    $ApplyPerf      = Ask-YesNo "Apply performance settings? (no file watching/search in vendor, node_modules, storage, dist; Jest on demand; GitLens code lens off)" $true
+    $ApplyPrefs     = Ask-YesNo "Apply recommended editor settings? (Pint for PHP, Prettier for TS/JS/Vue, Intelephense as the PHP engine, breadcrumbs nav bar, auto save on focus change, linked tag editing)" $true
+    $ApplyShortcuts = Ask-YesNo "Add PhpStorm-style shortcuts? (Double Shift = search, Alt+Home = nav bar, Ctrl+Alt+N = new file at path)" $true
+    $ApplyIcons     = Ask-YesNo "Use JetBrains-style file icons?" $true
+    if (-not $ApplyIcons) { $Catalog = @($Catalog | Where-Object { $_.Role -ne 'icons' }) }
 }
 
 # ---------------------------------------------------------------------------
@@ -813,12 +903,15 @@ foreach ($t in $targets) {
             Set-Prop $s 'php.debug.executablePath' $PhpPick.Path
             Ok "PHP $($PhpPick.Version): $($PhpPick.Path)"
         }
+        if ($ApplyPrefs) {
         Set-Prop $s 'breadcrumbs.enabled' $true          # navigation bar above the editor
         Set-Prop $s 'breadcrumbs.filePath' 'on'
         Set-Prop $s 'breadcrumbs.symbolPath' 'on'
         Set-Prop $s 'window.commandCenter' $true
         Set-Prop $s 'files.autoSave' 'onFocusChange'     # PhpStorm saves automatically
         Set-Prop $s 'editor.linkedEditing' $true
+        }
+        if ($ApplyPerf) {
         # --- Lighter on CPU / disk / RAM -------------------------------------------
         # Do not watch or index dependency and cache folders (biggest win in Laravel / NestJS projects)
         $heavyDirs = @{ '**/vendor/**' = $true; '**/node_modules/**' = $true; '**/storage/**' = $true; '**/bootstrap/cache/**' = $true; '**/dist/**' = $true; '**/.git/objects/**' = $true }
@@ -833,6 +926,8 @@ foreach ($t in $targets) {
         }
         if ($installed -contains 'orta.vscode-jest') { Set-Prop $s 'jest.runMode' 'on-demand' }   # no test runs on every save
         if ($installed -contains 'eamodio.gitlens') { Set-Prop $s 'gitlens.codeLens.enabled' $false } # fewer git calls while typing
+        }
+        if ($ApplyPrefs) {
         Set-Prop $s 'php.suggest.basic' $false           # let Intelephense own PHP completion
         Set-Prop $s 'intelephense.format.enable' $false  # Pint handles PHP formatting
         if ($installed -contains 'open-southeners.laravel-pint') {
@@ -846,6 +941,7 @@ foreach ($t in $targets) {
         if ($roles.newfile -eq 'patbenatar.advanced-new-file') {
             Set-Prop $s 'advancedNewFile.showInformationMessages' $false
         }
+        }
         Write-Json $settingsPath $s
         Ok "settings.json updated"
     } catch { Err "settings.json not changed (parse error?): $($_.Exception.Message)" }
@@ -858,11 +954,12 @@ foreach ($t in $targets) {
         @($parsed | ForEach-Object { $_ }) | Where-Object { $_ } | ForEach-Object { [void]$kb.Add($_) }
         Backup $kbPath
 
-        $wanted = @(
-            [pscustomobject]@{ key = 'shift shift'; command = 'workbench.action.quickOpen' }   # Double Shift = Search Everywhere
-            [pscustomobject]@{ key = 'alt+home'; command = 'breadcrumbs.focusAndSelect'; when = 'breadcrumbsPossible' }
-        )
-        if ($roles.newfile -eq 'patbenatar.advanced-new-file') {
+        $wanted = @()
+        if ($ApplyShortcuts) {
+            $wanted += [pscustomobject]@{ key = 'shift shift'; command = 'workbench.action.quickOpen' }   # Double Shift = Search Everywhere
+            $wanted += [pscustomobject]@{ key = 'alt+home'; command = 'breadcrumbs.focusAndSelect'; when = 'breadcrumbsPossible' }
+        }
+        if ($ApplyShortcuts -and $roles.newfile -eq 'patbenatar.advanced-new-file') {
             $wanted += [pscustomobject]@{ key = 'ctrl+alt+n'; command = 'extension.advancedNewFile' }
         }
         # VS Code shortcuts (when VS Code is the source)
@@ -887,7 +984,7 @@ foreach ($t in $targets) {
             if (-not ($kb | Where-Object { $_.key -eq $w.key -and $_.command -eq $w.command })) { [void]$kb.Add($w) }
         }
         Write-Json $kbPath ([object[]]$kb.ToArray())
-        Ok "keybindings.json updated (Double Shift = search, Alt+Home = nav bar, Ctrl+Alt+N = new file at path)"
+        Ok $(if ($ApplyShortcuts) { 'keybindings.json updated (Double Shift = search, Alt+Home = nav bar, Ctrl+Alt+N = new file at path)' } else { 'keybindings.json updated' })
     } catch { Err "keybindings.json not changed: $($_.Exception.Message)" }
 
     if ($t -eq 'cursor') {
