@@ -159,7 +159,7 @@ $Catalog = @(
     # TypeScript / NestJS
     @{ Name = 'ESLint';                          Ids = @('dbaeumer.vscode-eslint') }
     @{ Name = 'Prettier';                        Ids = @('esbenp.prettier-vscode') }
-    @{ Name = 'NestJS snippets';                 Ids = @('ashinzekene.nestjs') }
+    @{ Name = 'NestJS snippets';                 Ids = @('ashinzekene.nestjs', 'imgildev.vscode-nestjs-snippets-extension') }   # 2nd: on Open VSX
     @{ Name = 'Jest';                            Ids = @('Orta.vscode-jest') }
     @{ Name = 'Pretty TypeScript Errors';        Ids = @('yoavbls.pretty-ts-errors') }
     @{ Name = 'Path IntelliSense';               Ids = @('christian-kohler.path-intellisense') }
@@ -595,7 +595,7 @@ if ($DryRun) {
         $slots += @{ Name = "Database: $(($c.Name -split '\s{2,}')[0])"; Ids = $c.Ids }
         foreach ($w in @($c.With)) { if ($w) { $slots += @{ Name = "Database: $w"; Ids = @($w) } } }
     }
-    foreach ($k in $ThemeMap.Keys) { $slots += @{ Name = "Theme for '$k'"; Ids = $ThemeMap[$k] } }
+    foreach ($k in $ThemeMap.Keys) { $slots += @{ Name = "Theme for '$k'"; Ids = $ThemeMap[$k]; Optional = $true } }
     $bad = 0
     foreach ($t in $targets) {
         $ed = $Editors[$t]
@@ -606,6 +606,8 @@ if ($DryRun) {
             if ($pick) {
                 $note = if ($pick.Id -ne $slot.Ids[0]) { "  (fallback for $($slot.Ids[0]))" } else { '' }
                 Ok ("{0,-34} {1} v{2}{3}" -f $slot.Name, $pick.Id, $pick.Version, $note)
+            } elseif ($slot.Optional) {
+                Warn ("{0,-34} not in {1} (optional: the theme is left unchanged there)" -f $slot.Name, $ed.Registry)
             } else { Err ("{0,-34} none of: {1}" -f $slot.Name, ($slot.Ids -join ', ')); $bad++ }
         }
     }
@@ -827,6 +829,11 @@ foreach ($t in $targets) {
         }
 
         $pick = Resolve-Slot $slot $ed.Registry
+        if (-not $pick -and $slot.Role -eq 'theme') {
+            Warn "$($slot.Name): not available in $($ed.Registry); the color theme is left unchanged in $($ed.Label)."
+            $summary += [pscustomobject]@{ Editor = $ed.Label; Extension = ($slot.Ids -join ' / '); Status = 'skipped: theme not in this registry' }
+            continue
+        }
         if (-not $pick) {
             Err "No usable extension for '$($slot.Name)' (missing or deprecated everywhere)"
             $summary += [pscustomobject]@{ Editor = $ed.Label; Extension = ($slot.Ids -join ' / '); Status = 'SKIPPED: not available' }
