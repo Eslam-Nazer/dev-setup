@@ -7,6 +7,8 @@ Write new entries under **[Unreleased]**; `build/bump-version.ps1` moves them in
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-23
+
 ### Added
 - `setup.ps1` / `setup.bat`: one command that runs `env`, then `editor`. Uses the tools from a clone or the same folder, otherwise downloads them from the release matching its own version and verifies them against `SHA256SUMS.txt` before running
 - Releases ship `SHA256SUMS.txt`, `setup.ps1` and `setup.bat`

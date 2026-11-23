@@ -46,7 +46,7 @@ param(
 )
 
 # Bumped by build/bump-version.ps1; must match the git tag (vX.Y.Z) on release.
-$ScriptVersion = '0.2.2'
+$ScriptVersion = '0.3.0'
 if ($Version) { Write-Output "setup-dev-env $ScriptVersion"; return }
 
 $ErrorActionPreference = 'Continue'
