@@ -9,8 +9,6 @@ Scripts to set up a Windows dev machine for **Laravel + NestJS** (PHP / TypeScri
 databases, editor extensions and settings. It checks what you already have, asks before every install,
 and stays light on your machine.
 
-[العربية](README.ar.md)
-
 ![Example run of setup.ps1 (illustrative, shortened)](docs/images/example-run.svg)
 
 | Tool | What it does |

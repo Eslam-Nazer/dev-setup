@@ -7,6 +7,9 @@ Write new entries under **[Unreleased]**; `build/bump-version.ps1` moves them in
 
 ## [Unreleased]
 
+### Removed
+- `README.ar.md`: the docs are English only, so there is a single README to keep up to date
+
 ## [0.3.0] - 2026-11-23
 
 ### Added

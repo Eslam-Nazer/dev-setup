@@ -53,7 +53,7 @@ If you can, also run the Windows Sandbox checklist in [docs/testing.md](docs/tes
 Then:
 
 - Add a line under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md).
-- Update the docs for any behavior change (and the Tools table in `README.md` / `README.ar.md` if relevant).
+- Update the docs for any behavior change (and the Tools table in `README.md` if relevant).
 
 ## Adding a new tool
 
