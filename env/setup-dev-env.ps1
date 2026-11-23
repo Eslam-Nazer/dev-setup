@@ -26,6 +26,9 @@
   Run:  powershell -NoProfile -ExecutionPolicy Bypass -File .\setup-dev-env.ps1
   Options:
     -CheckOnly   report what is installed / missing, install nothing
+    -DryRun      check that every package id in the catalogue still exists (winget, or the winget-pkgs
+                 repository when winget is not available) and the npm packages; installs nothing.
+                 Exit code 0 = all available, 2 = something is missing, 3 = some lookups could not be checked
     -Yes         accept every default (installs everything missing except optional tools: Docker, editors, databases, GUI clients; Herd for PHP)
     -MaxRetries  retries per network step (default 4)
     -Version     print the version and exit
@@ -38,6 +41,7 @@ param(
     [switch]$CheckOnly,
     [switch]$Yes,
     [int]$MaxRetries = 4,
+    [switch]$DryRun,
     [switch]$Version
 )
 
@@ -48,7 +52,7 @@ if ($Version) { Write-Output "setup-dev-env $ScriptVersion"; return }
 $ErrorActionPreference = 'Continue'
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
 
-$LogDir  = Join-Path $env:LOCALAPPDATA 'dev-ext-installer'
+$LogDir  = Join-Path $env:LOCALAPPDATA 'dev-setup'
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 $LogFile = Join-Path $LogDir ("env-{0:yyyyMMdd-HHmmss}.log" -f (Get-Date))
 # Keep the log folder small: this run + the 9 newest older logs of this tool
@@ -156,6 +160,7 @@ function Invoke-WithRetry([scriptblock]$Action, [string]$What, [string]$HostName
     for ($i = 1; $i -le $MaxRetries; $i++) {
         try { return & $Action }
         catch {
+            if ("$($_.Exception.Message)" -eq 'NOTFOUND') { throw }   # a definite 'does not exist': no retry
             $delay = [Math]::Min(60, [Math]::Pow(2, $i))
             Warn ("{0} failed (attempt {1}/{2}): {3}" -f $What, $i, $MaxRetries, ($_.Exception.Message -split "`n")[0])
             Wait-ForInternet $HostName
@@ -685,6 +690,87 @@ function Invoke-DatabaseStep {
 # ---------------------------------------------------------------------------
 $summary = @()
 function Add-Result($name, $status, $detail) { $script:summary += [pscustomobject]@{ Tool = $name; Status = $status; Detail = $detail } }
+
+# ---------------------------------------------------------------------------
+# -DryRun: is every package id in the catalogue still available? Installs nothing.
+# ---------------------------------------------------------------------------
+$script:DryUnknown = 0
+function Test-WingetIdExists([string]$Id) {
+    # $true = exists, $false = definitely missing, $null = could not check (network / rate limit / blocked)
+    if ($HasWinget) { try { return [bool](Resolve-WingetId @($Id)) } catch { $script:DryUnknown++; return $null } }
+    # No winget (e.g. CI): look the manifest folder up in github.com/microsoft/winget-pkgs
+    $parts = $Id.Split('.')
+    $path = "manifests/$($parts[0].Substring(0,1).ToLower())/$($parts -join '/')"
+    $headers = @{ 'User-Agent' = 'dev-setup' }
+    if ($env:GITHUB_TOKEN) { $headers.Authorization = "Bearer $env:GITHUB_TOKEN" }
+    try {
+        $null = Invoke-WithRetry {
+            try { Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/winget-pkgs/contents/$path" -Headers $headers -TimeoutSec 30 -ErrorAction Stop }
+            catch { if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 404) { throw 'NOTFOUND' } ; throw }
+        } "winget-pkgs lookup $Id" 'api.github.com'
+        return $true
+    } catch {
+        if ("$($_.Exception.Message)" -eq 'NOTFOUND') { return $false }
+        $script:DryUnknown++
+        Warn "Could not check $Id ($(($_.Exception.Message -split "`n")[0]))"
+        return $null
+    }
+}
+
+function Invoke-DryRun {
+    Step ("Dry run: package ids ({0})" -f $(if ($HasWinget) { 'winget' } else { 'winget-pkgs repository' }))
+    $bad = 0
+    $slots = @()
+    foreach ($e in $PhpEnvs)     { $slots += @{ Name = $e.Name; Ids = $e.Winget } }
+    foreach ($t in $Tools)       { if ($t.Winget) { $slots += @{ Name = $t.Name; Ids = $t.Winget } } }
+    foreach ($a in $EditorApps)  { $slots += @{ Name = $a.Name; Ids = $a.Winget } }
+    foreach ($d in $Databases)   { if ($d.Winget) { $slots += @{ Name = $d.Name; Ids = $d.Winget } } }
+    foreach ($c in $DbClients)   { $slots += @{ Name = ($c.Name -split '\s{2,}')[0]; Ids = $c.Winget } }
+    $slots += @{ Name = 'Official PHP'; Ids = @($OfficialPhpLines | ForEach-Object { "PHP.PHP.$_" }); AllLines = $true }
+    foreach ($d in $Databases)   { if ($d.Lines) { $slots += @{ Name = $d.Name; Ids = @($d.Lines | ForEach-Object { $d.IdFormat -f $_ }); AllLines = $true } } }
+
+    foreach ($slot in $slots) {
+        if ($slot.AllLines) {
+            # one package per version line: report each, fail only if none exists
+            $res = @{}; foreach ($id in $slot.Ids) { $res[$id] = Test-WingetIdExists $id }
+            $found   = @($slot.Ids | Where-Object { $res[$_] -eq $true })
+            $gone    = @($slot.Ids | Where-Object { $res[$_] -eq $false })
+            $unknown = @($slot.Ids | Where-Object { $null -eq $res[$_] })
+            if ($found.Count) { Ok ("{0,-28} {1}" -f $slot.Name, ($found -join ', ')) }
+            elseif (-not $unknown.Count) { Err ("{0,-28} none of: {1}" -f $slot.Name, ($slot.Ids -join ', ')); $bad++ }
+            if ($gone.Count) { Warn ("{0,-28} not available (yet): {1}" -f $slot.Name, ($gone -join ', ')) }
+            continue
+        }
+        $hit = $null; $allMissing = $true
+        foreach ($id in $slot.Ids) {
+            $x = Test-WingetIdExists $id
+            if ($x -eq $true) { $hit = $id; break }
+            if ($null -eq $x) { $allMissing = $false }
+        }
+        if ($hit) {
+            $note = if ($hit -ne $slot.Ids[0]) { "  (fallback for $($slot.Ids[0]))" } else { '' }
+            Ok ("{0,-28} {1}{2}" -f $slot.Name, $hit, $note)
+        } elseif ($allMissing) { Err ("{0,-28} none of: {1}" -f $slot.Name, ($slot.Ids -join ', ')); $bad++ }
+        else { Warn ("{0,-28} could not be checked" -f $slot.Name) }
+    }
+
+    Step 'Dry run: npm packages'
+    foreach ($t in $Tools | Where-Object { $_.Npm }) {
+        try {
+            $info = Invoke-WithRetry { Invoke-RestMethod -Uri ("https://registry.npmjs.org/{0}/latest" -f ($t.Npm -replace '/', '%2f')) -TimeoutSec 30 -ErrorAction Stop } "npm lookup $($t.Npm)" 'registry.npmjs.org'
+            if ($info.deprecated) { Err ("{0,-28} {1} is DEPRECATED: {2}" -f $t.Name, $t.Npm, $info.deprecated); $bad++ }
+            else { Ok ("{0,-28} {1} v{2}" -f $t.Name, $t.Npm, $info.version) }
+        } catch { Err ("{0,-28} {1} not found" -f $t.Name, $t.Npm); $bad++ }
+    }
+
+    Step 'Dry run summary'
+    if ($bad) { Err "$bad item(s) are not available. Nothing was installed."; exit 2 }
+    if ($script:DryUnknown) { Warn "$($script:DryUnknown) lookup(s) could not be checked (network or rate limit). Nothing was installed."; exit 3 }
+    Ok 'Every package is available. Nothing was installed.'
+    exit 0
+}
+
+if ($DryRun) { Invoke-DryRun }
 
 if (-not $HasWinget -and -not $CheckOnly) {
     Warn 'winget was not found. Install "App Installer" from the Microsoft Store to let this script install tools.'
