@@ -16,6 +16,17 @@ Why separate tools instead of one big script:
 - **Run only what you need.** If the machine already has Herd, run `editor` only.
 - **One zip per tool.** A release ships `dev-setup-<tool>-vX.Y.Z.zip` for each tool folder (see [releasing](releasing.md)).
 
+## One entry point: `setup.ps1`
+
+`setup.ps1` at the repo root runs the tools in order (`env`, then `editor` with `-SkipEnvCheck`) and passes
+`-Yes`, `-DryRun`, `-Target`, `-Source` through. It is not a tool itself, just the front door:
+
+- In a clone it uses `env\` and `editor\` next to it.
+- Downloaded alone, it fetches `setup-dev-env.ps1` and `setup-dev-extensions.ps1` from the release **with its own
+  version** and checks them against that release's `SHA256SUMS.txt` before running them.
+
+When you add a tool that should run on a new machine, add one step to `setup.ps1`.
+
 ## Each script is self-contained
 
 Every script works when downloaded alone as a single file (for example with the `irm ... -OutFile` one-liner).
@@ -50,10 +61,11 @@ flowchart LR
 
 | Convention | Detail |
 |---|---|
+| Dry run | `-DryRun` checks availability (packages, extensions) and changes nothing; exit `0` ok, `2` missing (`3` = could not check, env). |
 | Version | A `$ScriptVersion = 'X.Y.Z'` line near the top, and a `-Version` flag that prints it. Same value in every tool; `build/bump-version.ps1` updates them. |
 | `-Yes` | Accept every default and ask nothing. |
 | Questions | Every question has a default; press Enter to accept it. |
-| Logs | `%LOCALAPPDATA%\dev-ext-installer\` (`env-*.log`, `install-*.log`). |
+| Logs | `%LOCALAPPDATA%\dev-setup\` (`env-*.log`, `install-*.log`). |
 | Network | Steps are retried (`-MaxRetries`) and the script waits for the internet to come back. |
 | Consent | Never install anything without asking first (unless `-Yes`). |
 | Check first | Detect what is already on the PC **before** downloading anything. |

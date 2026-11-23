@@ -13,9 +13,10 @@ Each entry is a slot with candidates in order of preference:
 The first candidate that exists in the registry and is not deprecated gets installed.
 `Role` marks slots the settings step needs: `keymap`, `icons`, `newfile`, `theme`.
 
-## Saved values: `$SavedDefaults`
+## Presets: `$RecommendedPreset` and `$AuthorPreset`
 
-Used when you choose "saved values" as the settings source: theme, keymap base, compact UI, smooth caret, shortcuts.
+Used when you choose "Recommended defaults" (neutral: no theme change, VS Code keymap) or "Author's preset" as the settings source.
+Each holds: color scheme + theme extension, keymap base, compact UI, smooth caret, extra shortcuts.
 
 ## PhpStorm shortcuts → VS Code: `$ActionMap`
 

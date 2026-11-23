@@ -7,6 +7,25 @@ Write new entries under **[Unreleased]**; `build/bump-version.ps1` moves them in
 
 ## [Unreleased]
 
+### Added
+- `setup.ps1` / `setup.bat`: one command that runs `env`, then `editor`. Uses the tools from a clone or the same folder, otherwise downloads them from the release matching its own version and verifies them against `SHA256SUMS.txt` before running
+- Releases ship `SHA256SUMS.txt`, `setup.ps1` and `setup.bat`
+- `env -DryRun` and `editor -DryRun`: check every winget id, official installer, npm package and extension (existence + deprecation) without installing anything
+- `editor -Restore`: put `settings.json` / `keybindings.json` back from one of the script's backups
+- `editor`: settings sources are now PhpStorm / VS Code / **recommended defaults** (neutral) / **author's preset** (the previous built-in values, now optional)
+- `editor`: performance settings, recommended editor settings, PhpStorm-style shortcuts and JetBrains icons are each asked for instead of applied silently
+- CI smoke tests on real Windows (`env -CheckOnly`, both dry runs) on every push; weekly catalog check that opens an issue when something is missing or deprecated
+- Windows Sandbox test kit (`build/sandbox/`) and `docs/testing.md` checklist
+- `README.ar.md` (Arabic), `CONTRIBUTING.md`, `SECURITY.md`, issue templates, example run image
+
+### Fixed
+- Package ids found wrong by the first dry run on real Windows: DBeaver (`DBeaver.DBeaver.Community`), Redis Insight (`RedisInsight.RedisInsight`); Composer has no winget package, so its official installer is used (only with a valid Authenticode signature)
+- Cursor (Open VSX): NestJS snippets fall back to `imgildev.vscode-nestjs-snippets-extension`; the Poimandres theme (not on Open VSX) leaves the theme unchanged with a warning instead of failing
+- `env -DryRun` no longer counts network / rate-limit errors as "missing"
+
+### Changed
+- Logs moved to `%LOCALAPPDATA%\dev-setup` (was `dev-ext-installer`)
+
 ## [0.2.2] - 2026-11-19
 
 ### Fixed

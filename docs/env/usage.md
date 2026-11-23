@@ -14,6 +14,7 @@ Or double-click the `.bat` launcher in `env\`.
 | Option | Values | Meaning |
 |---|---|---|
 | `-CheckOnly` | switch | Report what is installed or missing; install nothing. |
+| `-DryRun` | switch | Check that every package id / installer / npm package is still available; install nothing (see [Dry run](#dry-run)). |
 | `-Yes` | switch | Accept every default: installs everything missing except optional tools (Docker, editors, databases, GUI clients), Herd for PHP, latest versions. |
 | `-MaxRetries` | number (default 4) | Retries per network step. |
 | `-Version` | switch | Print the version and exit. |
@@ -26,6 +27,9 @@ Examples:
 
 # Install everything missing with defaults, no questions
 .\env\setup-dev-env.ps1 -Yes
+
+# Is the catalogue still valid? (installs nothing)
+.\env\setup-dev-env.ps1 -DryRun
 ```
 
 ## What it checks, in order
@@ -35,7 +39,7 @@ Examples:
 | 1 | PHP environment | Herd (`Herd.exe` or `~\.config\herd\bin`), Laragon (`laragon.exe` in `C:\laragon`, `D:\laragon`, `~\laragon`) | winget: `BeyondCode.Herd` / `Laravel.Herd`, `LeNgocKhoa.Laragon`, or official PHP | You pick **one** (see below). Warns if both are installed. |
 | 2 | PHP versions | Herd's `php*` folders | `herd php:install <ver>` | Only when Herd is installed or chosen. |
 | 3 | PHP | `php --version` | Comes with Herd / Laragon / official PHP | Not installed on its own. |
-| 4 | Composer | `composer --version` | winget `Composer.Composer` | Comes with Herd / Laragon. Needs PHP first. |
+| 4 | Composer | `composer --version` | Official `Composer-Setup.exe` from getcomposer.org (no winget package exists); its Authenticode signature must be valid before it runs | Comes with Herd / Laragon. Needs PHP first. |
 | 5 | Git | `git --version` | winget `Git.Git` | |
 | 6 | Node.js (+npm) | `node --version` | `herd node:install` with Herd, otherwise winget `OpenJS.NodeJS.LTS` | |
 | 7 | NestJS CLI | `nest --version` | `npm install -g @nestjs/cli` | Needs Node.js first. |
@@ -54,6 +58,14 @@ If neither Herd nor Laragon is found, it asks:
 4. **Skip**
 
 Choose only one. Herd and Laragon both put their own PHP first in PATH, so having both makes it unclear which `php` runs.
+
+## Dry run
+
+`-DryRun` checks the whole catalogue without installing anything: every winget id (with `winget` when it is
+installed, otherwise in the [winget-pkgs](https://github.com/microsoft/winget-pkgs) repository), the official
+installer URLs (Composer), and the npm packages (also flagged when deprecated).
+Exit code `0` = all available, `2` = something is missing, `3` = some lookups could not be checked.
+CI runs it on real Windows on every push and every Monday (see [Testing](../testing.md)).
 
 ## Editors
 
@@ -97,12 +109,12 @@ GUI clients you can pick (any or none):
 
 | Client | winget package | Works with |
 |---|---|---|
-| DBeaver Community | `dbeaver.dbeaver` | all of the above |
+| DBeaver Community | `DBeaver.DBeaver.Community` (fallback `dbeaver.dbeaver`) | all of the above |
 | HeidiSQL | `HeidiSQL.HeidiSQL` | MySQL, MariaDB, PostgreSQL |
 | pgAdmin 4 | `PostgreSQL.pgAdmin` | PostgreSQL |
 | MySQL Workbench | `Oracle.MySQLWorkbench` | MySQL |
 | MongoDB Compass | `MongoDB.Compass.Full` (fallback `MongoDB.Compass.Community`) | MongoDB |
-| Redis Insight | `Redis.RedisInsight` | Redis / Memurai |
+| Redis Insight | `RedisInsight.RedisInsight` | Redis / Memurai |
 
 For a database extension inside the editor instead of (or as well as) a separate app, see the editor tool.
 
@@ -128,7 +140,7 @@ Used **only** when Herd is installed or you chose it:
 | Install Node.js | `herd node:install <version or lts>` (Herd ships nvm; falls back to `nvm install` if it fails) |
 
 Without Herd, every tool comes from its official publisher through winget
-(`OpenJS.NodeJS.LTS`, `Git.Git`, `Docker.DockerDesktop`, `Composer.Composer`).
+(`OpenJS.NodeJS.LTS`, `Git.Git`, `Docker.DockerDesktop`), and Composer from its official installer.
 
 ## Version choice
 
@@ -152,7 +164,7 @@ Other tools read this code (the editor tool runs env when PHP or Node.js is miss
 
 ## Logs
 
-`%LOCALAPPDATA%\dev-ext-installer\env-YYYYMMDD-HHMMSS.log`. A summary table is printed at the end.
+`%LOCALAPPDATA%\dev-setup\env-YYYYMMDD-HHMMSS.log`. A summary table is printed at the end.
 
 ## Troubleshooting
 

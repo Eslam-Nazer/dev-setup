@@ -9,11 +9,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\editor\setup-dev-extension
 | Option | Values | Meaning |
 |---|---|---|
 | `-Target` | `cursor`, `code`, `both` | Which editor to set up. Asked if omitted. |
-| `-Source` | `phpstorm`, `vscode`, `builtin` | Where settings come from. Asked if omitted. |
+| `-Source` | `phpstorm`, `vscode`, `recommended`, `author` | Where settings come from. Asked if omitted. (`builtin` still works as `author`.) |
 | `-Yes` | switch | Accept every default, ask nothing. |
 | `-SkipSettings` | switch | Install extensions only; leave settings and shortcuts alone. |
 | `-MaxRetries` | number (default 8) | Retries per network step. |
 | `-SkipEnvCheck` | switch | Do not check for PHP / Node.js or offer to run the env tool. |
+| `-DryRun` | switch | Check every extension (exists, not deprecated) in Open VSX / Marketplace; install and change nothing. Exit `0` ok, `2` missing. |
+| `-Restore` | switch | Put `settings.json` / `keybindings.json` back from one of the backups this script made (you pick which). |
 | `-Version` | switch | Print the version and exit. |
 
 Examples:
@@ -24,6 +26,12 @@ Examples:
 
 # Extensions only, both editors
 .\editor\setup-dev-extensions.ps1 -Target both -SkipSettings
+
+# Check the catalogue without installing anything
+.\editor\setup-dev-extensions.ps1 -DryRun -Target both
+
+# Undo the settings changes
+.\editor\setup-dev-extensions.ps1 -Restore -Target cursor
 ```
 
 ## Dev tools check
@@ -45,7 +53,22 @@ See [How this repo is organized](../architecture.md) and the [env tool](../env/u
   If the keymap is VS Code-based, native VS Code shortcuts are kept; otherwise the IntelliJ keymap extension is installed.
 - **VS Code**: copies `settings.json` and `keybindings.json` from VS Code into Cursor, and installs the extension
   that provides your VS Code theme.
-- **Saved values**: the `$SavedDefaults` block in the script. Works on a PC without PhpStorm.
+- **Recommended defaults**: neutral. No theme change, VS Code keymap, no layout changes. Works on any PC.
+- **Author's preset**: the author's own setup (poimandres theme, compact tabs, smooth caret, `Ctrl+Space` terminal completion).
+  Optional; pick it only if you like that look.
+
+## Opinionated settings are asked, not forced
+
+After the source, the script asks (default yes for each, `-Yes` accepts all):
+
+| Question | What it changes |
+|---|---|
+| Performance settings | See [Performance settings](#performance-settings) |
+| Recommended editor settings | Pint as PHP formatter, Prettier for TS/JS/JSON/Vue, Intelephense as the PHP engine, breadcrumbs nav bar, command center, auto save on focus change, linked tag editing |
+| PhpStorm-style shortcuts | `Shift Shift` = search, `Alt+Home` = nav bar, `Ctrl+Alt+N` = new file at path |
+| JetBrains-style file icons | Installs the icon theme and selects it |
+
+Answer no to keep your editor exactly as it is in that area.
 
 ## PHP interpreter
 
@@ -55,7 +78,9 @@ Each one is run once to read its real version. You choose the latest or pick fro
 ## Safety
 
 - `settings.json` and `keybindings.json` are backed up as `*.bak-YYYYMMDD-HHMMSS` before any change.
-- Log: `%LOCALAPPDATA%\dev-ext-installer\install-*.log`.
+- `-Restore` lists the backups (newest first) and puts the chosen one back; the current file is kept as `*.before-restore-*`.
+  Extensions are not removed.
+- Log: `%LOCALAPPDATA%\dev-setup\install-*.log`.
 - Re-running is safe: installed extensions are skipped and duplicate shortcuts are not added.
 
 ## Performance settings

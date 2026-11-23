@@ -42,8 +42,9 @@ if there is no GitHub Release for that version yet, it:
 1. Fails if the tool scripts disagree on the version or the CHANGELOG has no section for it
 2. Runs PSScriptAnalyzer (errors only)
 3. Builds `dev-setup-<tool>-v0.2.0.zip` for each tool folder (script + its docs + README + CHANGELOG + LICENSE)
-4. Creates the tag `v0.2.0` at that commit and publishes the GitHub Release with the zips,
-   unversioned copies of each script, and the CHANGELOG section as notes
+4. Adds `setup.ps1` / `setup.bat` and writes `SHA256SUMS.txt` for every asset
+5. Creates the tag `v0.2.0` at that commit and publishes the GitHub Release with the zips,
+   unversioned copies of each script, `SHA256SUMS.txt`, and the CHANGELOG section as notes
 
 Pushes that do not change the version are skipped, so normal commits never create releases.
 You can also run the workflow by hand from the Actions tab, or push a tag `vX.Y.Z` yourself; the tag must match `$ScriptVersion`.

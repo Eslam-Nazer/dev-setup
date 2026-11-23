@@ -2,40 +2,64 @@
 
 [![Release](https://img.shields.io/github/v/release/Eslam-Nazer/dev-setup?sort=semver)](https://github.com/Eslam-Nazer/dev-setup/releases/latest)
 [![CI](https://github.com/Eslam-Nazer/dev-setup/actions/workflows/ci.yml/badge.svg)](https://github.com/Eslam-Nazer/dev-setup/actions/workflows/ci.yml)
+[![Catalog check](https://github.com/Eslam-Nazer/dev-setup/actions/workflows/catalog-check.yml/badge.svg)](https://github.com/Eslam-Nazer/dev-setup/actions/workflows/catalog-check.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Scripts to set up a Windows dev machine for **Laravel + NestJS** (PHP / TypeScript).
+Scripts to set up a Windows dev machine for **Laravel + NestJS** (PHP / TypeScript): dev tools, editors,
+databases, editor extensions and settings. It checks what you already have, asks before every install,
+and stays light on your machine.
+
+[العربية](README.ar.md)
+
+![Example run of setup.ps1 (illustrative, shortened)](docs/images/example-run.svg)
 
 | Tool | What it does |
 |---|---|
-| [`env/`](env/) | Checks and installs dev tools: Herd/Laragon/PHP, Composer, Git, Node.js, NestJS CLI, Docker, editors (PhpStorm, VS Code, Cursor), databases (PostgreSQL, MySQL, MariaDB, Redis, MongoDB) and DB GUI clients |
-| [`editor/`](editor/) | One-click Cursor / VS Code setup with a PhpStorm feel |
+| [`setup.ps1`](setup.ps1) | **One command**: runs `env`, then `editor` |
+| [`env/`](env/) | Checks and installs dev tools: Herd / Laragon / official PHP, Composer, Git, Node.js, NestJS CLI, Docker, editors (PhpStorm, VS Code, Cursor), databases (PostgreSQL, MySQL, MariaDB, Redis, MongoDB) and DB GUI clients |
+| [`editor/`](editor/) | Cursor / VS Code extensions and settings for Laravel + NestJS, with an optional PhpStorm feel |
 
-**New machine?** Run `env` first, then `editor`. (The editor tool offers to run `env` automatically if PHP or Node.js are missing.)
+## Quick start
 
-Docs: [How this repo is organized](docs/architecture.md) | [Env usage](docs/env/usage.md) | [Editor usage](docs/editor/usage.md)
-
-## Download
-
-**Newest version, one command** (PowerShell):
+**One command** (PowerShell, Windows 10/11):
 
 ```powershell
-# env tool
-irm https://github.com/Eslam-Nazer/dev-setup/releases/latest/download/setup-dev-env.ps1 -OutFile setup-dev-env.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File .\setup-dev-env.ps1
-
-# editor tool
-irm https://github.com/Eslam-Nazer/dev-setup/releases/latest/download/setup-dev-extensions.ps1 -OutFile setup-dev-extensions.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File .\setup-dev-extensions.ps1
+irm https://github.com/Eslam-Nazer/dev-setup/releases/latest/download/setup.ps1 -OutFile setup.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\setup.ps1
 ```
 
-**Or** grab `dev-setup-editor-vX.Y.Z.zip` from the [latest release](https://github.com/Eslam-Nazer/dev-setup/releases/latest),
-unzip it and double-click `setup-dev-extensions.bat`.
+`setup.ps1` downloads the two tools from the same release and **verifies them against `SHA256SUMS.txt`**
+before running them. Press Enter to accept each default.
 
-Check which version you have:
+Try it without changing anything first:
 
 ```powershell
-.\setup-dev-extensions.ps1 -Version
+.\setup.ps1 -DryRun -Target both     # are all packages and extensions available? installs nothing
 ```
+
+Other ways:
+
+- **Zip:** download `dev-setup-env-vX.Y.Z.zip` / `dev-setup-editor-vX.Y.Z.zip` from the
+  [latest release](https://github.com/Eslam-Nazer/dev-setup/releases/latest), unzip, double-click the `.bat`.
+- **Clone:** `git clone https://github.com/Eslam-Nazer/dev-setup` then double-click `setup.bat`.
+- **One tool only:** `releases/latest/download/setup-dev-env.ps1` or `.../setup-dev-extensions.ps1`.
+
+Check a download yourself:
+
+```powershell
+(Get-FileHash .\setup.ps1 -Algorithm SHA256).Hash   # compare with SHA256SUMS.txt in the release
+```
+
+| Option (`setup.ps1`) | Meaning |
+|---|---|
+| `-DryRun` | Only check availability; install and change nothing |
+| `-Yes` | Accept every default (optional heavy things like Docker, editors and databases stay off) |
+| `-Target cursor\|code\|both` | Which editor to configure |
+| `-Source phpstorm\|vscode\|recommended\|author` | Where editor settings come from |
+| `-SkipEnv` / `-SkipEditor` | Run only one of the tools |
+| `-Version` | Print the version |
+
+Docs: [How this repo is organized](docs/architecture.md) | [Env usage](docs/env/usage.md) | [Editor usage](docs/editor/usage.md) | [Testing](docs/testing.md) | [Contributing](CONTRIBUTING.md) | [Security](SECURITY.md)
 
 ---
 
@@ -48,7 +72,8 @@ Checks Herd / Laragon / PHP, Composer, Git, Node.js, NestJS CLI and Docker Deskt
 powershell -NoProfile -ExecutionPolicy Bypass -File .\env\setup-dev-env.ps1
 ```
 
-Use `-CheckOnly` to only report. Full details: [docs/env/usage.md](docs/env/usage.md).
+Use `-CheckOnly` to only report, `-DryRun` to check that every package id is still available.
+Full details: [docs/env/usage.md](docs/env/usage.md).
 
 ---
 
@@ -70,9 +95,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\editor\setup-dev-extension
 ### What it asks
 
 1. Install into Cursor, VS Code, or both
-2. Where to take settings from: PhpStorm on this PC, VS Code on this PC, or the values saved in the script
+2. Where to take settings from: PhpStorm on this PC, VS Code on this PC, **recommended defaults** (neutral: keeps your
+   theme, layout and shortcuts) or the **author's preset** (poimandres theme, compact tabs, smooth caret)
 3. Whether to change the color theme
 4. Whether to set the PHP interpreter, and whether to use the latest PHP found or pick a version
+5. Whether to apply performance settings, recommended editor settings, PhpStorm-style shortcuts and JetBrains icons
+   (each asked separately; nothing opinionated is applied silently)
+6. Which database extension to add, if any
 
 ### Features
 
@@ -83,7 +112,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\editor\setup-dev-extension
 - Copies keymap, custom shortcuts, theme, compact UI, smooth caret and PHP interpreter from the chosen source
 - Double Shift = search, Alt+Home = breadcrumbs nav bar, Ctrl+Alt+N = new file at any path
 - JetBrains-style file icons, Claude Code extension
-- Backs up `settings.json` and `keybindings.json` before changing them
+- Backs up `settings.json` and `keybindings.json` before changing them; `-Restore` puts a backup back
+- `-DryRun` checks every extension (exists, not deprecated) without installing anything
 
 ### Docs
 
@@ -102,6 +132,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\editor\setup-dev-extension
 ## Versions and releases
 
 - [Changelog](CHANGELOG.md)
+- [Testing](docs/testing.md): automatic checks on real Windows (every push + weekly), and a Windows Sandbox kit for manual tests
 - [How versions and releases work](docs/releasing.md): `.\build\bump-version.ps1 -Version X.Y.Z -Commit` then `git push` (the workflow tags and releases)
 
 ---
@@ -122,7 +153,12 @@ Light on the machine first, then on the wallet.
   the question defaults to No and `-Yes` skips them.
 - Nothing is downloaded before you agree; checks use small API calls.
 - Already-installed tools and extensions are skipped, so re-runs are quick.
-- Housekeeping: only the 10 newest logs per tool and the 5 newest `settings.json` / `keybindings.json` backups are kept.
+- Housekeeping: only the 10 newest logs per tool (in `%LOCALAPPDATA%\dev-setup`) and the 5 newest `settings.json` / `keybindings.json` backups are kept.
+
+## Contributing and security
+
+Bug reports and ideas are welcome: use the issue templates. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Security problems: see [SECURITY.md](SECURITY.md).
 
 ## License
 
