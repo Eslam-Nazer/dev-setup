@@ -1,0 +1,14 @@
+name: Feature request
+description: A tool, package, extension or option you would like
+labels: [enhancement]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What would you like?
+      description: For a new package or extension, include its winget id or extension id if you know it
+    validations: { required: true }
+  - type: textarea
+    id: why
+    attributes:
+      label: Why is it useful?

@@ -93,6 +93,13 @@ jobs:
             # Unversioned copies so .../releases/latest/download/<file> always works
             Get-ChildItem $t.FullName -File | Where-Object { $_.Extension -in '.ps1', '.bat' } | Copy-Item -Destination dist/
           }
+          # One-command entry point at the repo root
+          Copy-Item setup.ps1, setup.bat -Destination dist/
+          # Checksums for everything people download (setup.ps1 verifies the tools with this file)
+          Get-ChildItem dist -File | Where-Object { $_.Extension -in '.zip', '.ps1', '.bat' } | Sort-Object Name | ForEach-Object {
+            "{0}  {1}" -f (Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLower(), $_.Name
+          } | Set-Content dist/SHA256SUMS.txt -Encoding ascii
+          Get-Content dist/SHA256SUMS.txt
           Get-ChildItem dist -File | Format-Table Name, Length
 
       - name: Release notes from CHANGELOG
@@ -117,7 +124,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $tag = '${{ steps.ver.outputs.tag }}'
-          $files = Get-ChildItem dist -File | Where-Object { $_.Extension -in '.zip', '.ps1', '.bat' } | ForEach-Object { $_.FullName }
+          $files = Get-ChildItem dist -File | Where-Object { $_.Extension -in '.zip', '.ps1', '.bat' -or $_.Name -eq 'SHA256SUMS.txt' } | ForEach-Object { $_.FullName }
           $extra = @()
           if ($tag -match '-') { $extra += '--prerelease' }
           # Creates the tag at this commit if it does not exist yet

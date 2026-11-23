@@ -56,3 +56,38 @@ jobs:
               }
             }
           }
+
+  smoke:
+    # Real Windows: run the tools in modes that install nothing
+    runs-on: windows-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: env -CheckOnly (detection on a real Windows machine)
+        shell: pwsh
+        run: |
+          ./env/setup-dev-env.ps1 -CheckOnly -Yes
+          # 0 = PHP and Node present, 1 = something missing; anything else is a crash
+          if ($LASTEXITCODE -notin 0, 1) { exit 1 }
+          exit 0
+
+      - name: env -DryRun (every winget / npm package still exists)
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          ./env/setup-dev-env.ps1 -DryRun -Yes
+          if ($LASTEXITCODE -eq 2) { exit 1 }
+          if ($LASTEXITCODE -eq 3) { Write-Host '::warning::Some package lookups could not be checked' }
+          exit 0
+
+      - name: editor -DryRun (every extension exists and is not deprecated, both registries)
+        shell: pwsh
+        run: |
+          ./editor/setup-dev-extensions.ps1 -DryRun -Target both -Yes -SkipEnvCheck
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: setup.ps1 -Version
+        shell: pwsh
+        run: ./setup.ps1 -Version
