@@ -7,6 +7,8 @@ Write new entries under **[Unreleased]**; `build/bump-version.ps1` moves them in
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-24
+
 ### Changed
 - **The project is now called Jahiz** (جاهز, "ready" in Arabic). The repository moved from `Eslam-Nazer/dev-setup` to `Eslam-Nazer/jahiz` (old links redirect). Files and assets were renamed:
 
