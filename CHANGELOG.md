@@ -91,3 +91,11 @@ Write new entries under **[Unreleased]**; `build/bump-version.ps1` moves them in
 - Double Shift search, breadcrumbs nav bar, new file at path, JetBrains icons, Claude Code
 - `-Version` flag, CI checks, `build/bump-version.ps1`
 - Automatic releases: a new `$ScriptVersion` on main creates the tag and the GitHub Release
+
+[Unreleased]: https://github.com/Eslam-Nazer/jahiz/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Eslam-Nazer/jahiz/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/Eslam-Nazer/jahiz/compare/v0.2.2...v0.3.0
+[0.2.2]: https://github.com/Eslam-Nazer/jahiz/compare/v0.2.1...v0.2.2
+[0.2.1]: https://github.com/Eslam-Nazer/jahiz/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/Eslam-Nazer/jahiz/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/Eslam-Nazer/jahiz/releases/tag/v0.1.0
