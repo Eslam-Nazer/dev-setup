@@ -7,6 +7,17 @@ Write new entries under **[Unreleased]**; `build/bump-version.ps1` moves them in
 
 ## [Unreleased]
 
+### Changed
+- **The project is now called Jahiz** (جاهز, "ready" in Arabic). The repository moved from `Eslam-Nazer/dev-setup` to `Eslam-Nazer/jahiz` (old links redirect). Files and assets were renamed:
+
+  | Before | Now |
+  |---|---|
+  | `setup.ps1` / `setup.bat` | `jahiz.ps1` / `jahiz.bat` |
+  | `env/setup-dev-env.ps1` | `env/jahiz-env.ps1` |
+  | `editor/setup-dev-extensions.ps1` | `editor/jahiz-editor.ps1` |
+  | `dev-setup-<tool>-vX.Y.Z.zip` | `jahiz-<tool>-vX.Y.Z.zip` |
+  | logs in `%LOCALAPPDATA%\dev-setup` | logs in `%LOCALAPPDATA%\jahiz` |
+
 ### Removed
 - `README.ar.md`: the docs are English only, so there is a single README to keep up to date
 

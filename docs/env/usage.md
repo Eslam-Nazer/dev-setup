@@ -1,12 +1,12 @@
 # Env tool: usage
 
-`env/setup-dev-env.ps1` checks the dev tools a Laravel + NestJS machine needs and installs the missing ones.
+`env/jahiz-env.ps1` checks the dev tools a Laravel + NestJS machine needs and installs the missing ones.
 It asks before every install.
 
 ## Run
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\env\setup-dev-env.ps1 [options]
+powershell -NoProfile -ExecutionPolicy Bypass -File .\env\jahiz-env.ps1 [options]
 ```
 
 Or double-click the `.bat` launcher in `env\`.
@@ -23,13 +23,13 @@ Examples:
 
 ```powershell
 # See what is missing, change nothing
-.\env\setup-dev-env.ps1 -CheckOnly
+.\env\jahiz-env.ps1 -CheckOnly
 
 # Install everything missing with defaults, no questions
-.\env\setup-dev-env.ps1 -Yes
+.\env\jahiz-env.ps1 -Yes
 
 # Is the catalogue still valid? (installs nothing)
-.\env\setup-dev-env.ps1 -DryRun
+.\env\jahiz-env.ps1 -DryRun
 ```
 
 ## What it checks, in order
@@ -164,7 +164,7 @@ Other tools read this code (the editor tool runs env when PHP or Node.js is miss
 
 ## Logs
 
-`%LOCALAPPDATA%\dev-setup\env-YYYYMMDD-HHMMSS.log`. A summary table is printed at the end.
+`%LOCALAPPDATA%\jahiz\env-YYYYMMDD-HHMMSS.log`. A summary table is printed at the end.
 
 ## Troubleshooting
 
@@ -184,7 +184,7 @@ Other tools read this code (the editor tool runs env when PHP or Node.js is miss
 - GUI clients: `$DbClients` (`Name`, `Winget`, `Url`).
 
 
-All the data is at the top of `setup-dev-env.ps1`.
+All the data is at the top of `jahiz-env.ps1`.
 
 **`$PhpEnvs`**: the choices for step 1 (Herd, Laragon). Fields: `Key`, `Name`, `Detect`, `Winget`, `Url`.
 

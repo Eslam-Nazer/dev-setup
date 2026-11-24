@@ -7,7 +7,7 @@ Two layers: automatic checks on every push, and a manual run on a clean Windows 
 | When | Workflow | What it checks |
 |---|---|---|
 | Every push / PR | `ci.yml` → `check` | Every `.ps1` parses in PowerShell 7 **and** Windows PowerShell 5.1; PSScriptAnalyzer (errors); `-Version` works |
-| Every push / PR | `ci.yml` → `smoke` | On `windows-latest`: `env -CheckOnly` runs without crashing; `env -DryRun` finds every winget / npm package; `editor -DryRun` finds every extension in Open VSX **and** the VS Code Marketplace, none deprecated; `setup.ps1 -Version` |
+| Every push / PR | `ci.yml` → `smoke` | On `windows-latest`: `env -CheckOnly` runs without crashing; `env -DryRun` finds every winget / npm package; `editor -DryRun` finds every extension in Open VSX **and** the VS Code Marketplace, none deprecated; `jahiz.ps1 -Version` |
 | Mondays | `catalog-check.yml` | The same dry runs; opens (or comments on) an issue when a package or extension is missing or deprecated |
 | Tag / new version on main | `release.yml` | Versions match the tag, CHANGELOG has the section, lint, then packages and publishes |
 
@@ -18,8 +18,8 @@ Nothing is installed on the CI machines: `-CheckOnly` and `-DryRun` only look th
 Safe to run any time; they install and change nothing:
 
 ```powershell
-.\env\setup-dev-env.ps1 -CheckOnly          # what is installed / missing here
-.\setup.ps1 -DryRun -Target both            # are all packages and extensions still available?
+.\env\jahiz-env.ps1 -CheckOnly          # what is installed / missing here
+.\jahiz.ps1 -DryRun -Target both            # are all packages and extensions still available?
 ```
 
 `env -DryRun` exit codes: `0` all available, `2` something missing, `3` some lookups could not be checked (network).
@@ -34,17 +34,17 @@ It uses RAM only while it is open (the script caps it at 4 GB; change with `-Mem
 1. Enable it once (admin PowerShell, then restart Windows):
    `Enable-WindowsOptionalFeature -Online -FeatureName Containers-DisposableClientVM -All`
 2. From the repo: `.\build\sandbox\start-sandbox.ps1`
-   - Maps the repo **read-only** at `C:\dev-setup`
+   - Maps the repo **read-only** at `C:\jahiz`
    - Installs winget inside the sandbox (it has none) the official way: `Microsoft.WinGet.Client` → `Repair-WinGetPackageManager`
-3. Run the checklist below inside the sandbox, then copy `%LOCALAPPDATA%\dev-setup\*.log` out before closing.
+3. Run the checklist below inside the sandbox, then copy `%LOCALAPPDATA%\jahiz\*.log` out before closing.
 
 ### Checklist
 
 | # | Run | Expect |
 |---|---|---|
-| 1 | `C:\dev-setup\env\setup-dev-env.ps1 -CheckOnly` | Lists what is missing; installs nothing; exit code 1 (no PHP/Node yet) |
-| 2 | `C:\dev-setup\setup.ps1 -DryRun -Target both` | All `[OK]`; exit code 0 |
-| 3 | `C:\dev-setup\setup.ps1` → PHP environment: **Herd** | Herd installs silently, then Herd opens and the script **waits** until PHP appears, then continues |
+| 1 | `C:\jahiz\env\jahiz-env.ps1 -CheckOnly` | Lists what is missing; installs nothing; exit code 1 (no PHP/Node yet) |
+| 2 | `C:\jahiz\jahiz.ps1 -DryRun -Target both` | All `[OK]`; exit code 0 |
+| 3 | `C:\jahiz\jahiz.ps1` → PHP environment: **Herd** | Herd installs silently, then Herd opens and the script **waits** until PHP appears, then continues |
 | 4 | Herd PHP versions: install another | `herd php:install` runs; new version listed |
 | 5 | Node.js | Installed through Herd (`herd node:install`), version picked from the list |
 | 6 | Git, NestJS CLI | Version question (latest or list), installed and verified |
@@ -54,8 +54,8 @@ It uses RAM only while it is open (the script caps it at 4 GB; change with `-Mem
 | 10 | GUI clients: pick DBeaver | Installed; picking an installed one says "already installed" |
 | 11 | Editor tool (VS Code), source **Recommended** | Theme and layout unchanged; questions for performance / preferences / shortcuts / icons |
 | 12 | Database extension: pick Database Client | Installed |
-| 13 | Run `setup.ps1` again | Everything reported as present / already installed; nothing re-installed |
-| 14 | `C:\dev-setup\editor\setup-dev-extensions.ps1 -Restore -Target code` | Lists backups; restores the chosen one |
+| 13 | Run `jahiz.ps1` again | Everything reported as present / already installed; nothing re-installed |
+| 14 | `C:\jahiz\editor\jahiz-editor.ps1 -Restore -Target code` | Lists backups; restores the chosen one |
 | 15 | Laragon path (new sandbox) | Laragon opens; script waits until you add it to PATH |
 | 16 | Official PHP path (new sandbox) | PHP from php.net via winget, version picked; Composer offered next |
 

@@ -14,18 +14,18 @@ Why separate tools instead of one big script:
 
 - **One job each.** Smaller scripts are easier to change and test.
 - **Run only what you need.** If the machine already has Herd, run `editor` only.
-- **One zip per tool.** A release ships `dev-setup-<tool>-vX.Y.Z.zip` for each tool folder (see [releasing](releasing.md)).
+- **One zip per tool.** A release ships `jahiz-<tool>-vX.Y.Z.zip` for each tool folder (see [releasing](releasing.md)).
 
-## One entry point: `setup.ps1`
+## One entry point: `jahiz.ps1`
 
-`setup.ps1` at the repo root runs the tools in order (`env`, then `editor` with `-SkipEnvCheck`) and passes
+`jahiz.ps1` at the repo root runs the tools in order (`env`, then `editor` with `-SkipEnvCheck`) and passes
 `-Yes`, `-DryRun`, `-Target`, `-Source` through. It is not a tool itself, just the front door:
 
 - In a clone it uses `env\` and `editor\` next to it.
-- Downloaded alone, it fetches `setup-dev-env.ps1` and `setup-dev-extensions.ps1` from the release **with its own
+- Downloaded alone, it fetches `jahiz-env.ps1` and `jahiz-editor.ps1` from the release **with its own
   version** and checks them against that release's `SHA256SUMS.txt` before running them.
 
-When you add a tool that should run on a new machine, add one step to `setup.ps1`.
+When you add a tool that should run on a new machine, add one step to `jahiz.ps1`.
 
 ## Each script is self-contained
 
@@ -44,15 +44,15 @@ Tools stay independent, but `editor` can start `env` when it needs it.
 flowchart LR
     E[editor: Dev tools check] -->|php and node found| C[continue editor setup]
     E -->|missing: ask to run env| F{Find env script}
-    F -->|1. ../env/setup-dev-env.ps1| R[run env]
+    F -->|1. ../env/jahiz-env.ps1| R[run env]
     F -->|2. same folder| R
-    F -->|3. download releases/latest/download/setup-dev-env.ps1| R
+    F -->|3. download releases/latest/download/jahiz-env.ps1| R
     R -->|exit code 0 or 1| P[editor refreshes PATH]
     P --> C
 ```
 
 - `editor` checks for `php` and `node`. If one is missing it asks: "Run the dev tools setup (env) first?"
-- It looks for env in this order: `../env/setup-dev-env.ps1` (clone), the same folder, then a download from the latest release.
+- It looks for env in this order: `../env/jahiz-env.ps1` (clone), the same folder, then a download from the latest release.
 - `env` exits with **0** when PHP and Node.js are both available, **1** otherwise.
 - `editor` refreshes PATH and continues either way (it warns if something is still missing).
 - `-SkipEnvCheck` turns the whole check off.
@@ -65,7 +65,7 @@ flowchart LR
 | Version | A `$ScriptVersion = 'X.Y.Z'` line near the top, and a `-Version` flag that prints it. Same value in every tool; `build/bump-version.ps1` updates them. |
 | `-Yes` | Accept every default and ask nothing. |
 | Questions | Every question has a default; press Enter to accept it. |
-| Logs | `%LOCALAPPDATA%\dev-setup\` (`env-*.log`, `install-*.log`). |
+| Logs | `%LOCALAPPDATA%\jahiz\` (`env-*.log`, `install-*.log`). |
 | Network | Steps are retried (`-MaxRetries`) and the script waits for the internet to come back. |
 | Consent | Never install anything without asking first (unless `-Yes`). |
 | Check first | Detect what is already on the PC **before** downloading anything. |

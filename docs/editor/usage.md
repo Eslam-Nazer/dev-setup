@@ -3,7 +3,7 @@
 ## Run
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\editor\setup-dev-extensions.ps1 [options]
+powershell -NoProfile -ExecutionPolicy Bypass -File .\editor\jahiz-editor.ps1 [options]
 ```
 
 | Option | Values | Meaning |
@@ -22,16 +22,16 @@ Examples:
 
 ```powershell
 # Cursor, settings from PhpStorm, no questions
-.\editor\setup-dev-extensions.ps1 -Target cursor -Source phpstorm -Yes
+.\editor\jahiz-editor.ps1 -Target cursor -Source phpstorm -Yes
 
 # Extensions only, both editors
-.\editor\setup-dev-extensions.ps1 -Target both -SkipSettings
+.\editor\jahiz-editor.ps1 -Target both -SkipSettings
 
 # Check the catalogue without installing anything
-.\editor\setup-dev-extensions.ps1 -DryRun -Target both
+.\editor\jahiz-editor.ps1 -DryRun -Target both
 
 # Undo the settings changes
-.\editor\setup-dev-extensions.ps1 -Restore -Target cursor
+.\editor\jahiz-editor.ps1 -Restore -Target cursor
 ```
 
 ## Dev tools check
@@ -39,7 +39,7 @@ Examples:
 Before installing anything, the script checks that `php` and `node` are on PATH.
 If one is missing it asks "Run the dev tools setup (env) first?" (default yes).
 
-- It finds the env tool at `..\env\setup-dev-env.ps1` (clone), in the same folder, or downloads it from the latest release.
+- It finds the env tool at `..\env\jahiz-env.ps1` (clone), in the same folder, or downloads it from the latest release.
 - `env` exit code 0 means PHP and Node.js are available. The editor refreshes PATH and continues.
   If something is still missing it warns and carries on.
 - Answer no, or pass `-SkipEnvCheck`, to skip it.
@@ -80,7 +80,7 @@ Each one is run once to read its real version. You choose the latest or pick fro
 - `settings.json` and `keybindings.json` are backed up as `*.bak-YYYYMMDD-HHMMSS` before any change.
 - `-Restore` lists the backups (newest first) and puts the chosen one back; the current file is kept as `*.before-restore-*`.
   Extensions are not removed.
-- Log: `%LOCALAPPDATA%\dev-setup\install-*.log`.
+- Log: `%LOCALAPPDATA%\jahiz\install-*.log`.
 - Re-running is safe: installed extensions are skipped and duplicate shortcuts are not added.
 
 ## Performance settings
@@ -108,5 +108,5 @@ Extensions already installed are marked `[installed]` and are skipped.
 | SQLTools | `mtxr.sqltools` + `mtxr.sqltools-driver-pg` + `mtxr.sqltools-driver-mysql` | PostgreSQL, MySQL, MariaDB |
 | MongoDB for VS Code | `mongodb.mongodb-vscode` | MongoDB |
 
-To install the database servers and GUI clients themselves, use the env tool (`env/setup-dev-env.ps1`).
+To install the database servers and GUI clients themselves, use the env tool (`env/jahiz-env.ps1`).
 Edit the list in `$DbExtensionChoices`.

@@ -1,6 +1,6 @@
 <#
   build/sandbox/start-sandbox.ps1
-  Opens a clean, throw-away Windows Sandbox with this repo mapped (read-only) at C:\dev-setup,
+  Opens a clean, throw-away Windows Sandbox with this repo mapped (read-only) at C:\jahiz,
   so you can test the tools on a fresh Windows without touching your own machine.
   Everything inside the sandbox is deleted when you close it.
 
@@ -22,22 +22,22 @@ if (-not (Test-Path $exe)) {
 }
 
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-$wsb  = Join-Path $env:TEMP 'dev-setup-test.wsb'
+$wsb  = Join-Path $env:TEMP 'jahiz-test.wsb'
 $xml = @"
 <Configuration>
   <MemoryInMB>$MemoryMB</MemoryInMB>
   <MappedFolders>
     <MappedFolder>
       <HostFolder>$repo</HostFolder>
-      <SandboxFolder>C:\dev-setup</SandboxFolder>
+      <SandboxFolder>C:\jahiz</SandboxFolder>
       <ReadOnly>true</ReadOnly>
     </MappedFolder>
   </MappedFolders>
   <LogonCommand>
-    <Command>powershell.exe -NoProfile -ExecutionPolicy Bypass -NoExit -File C:\dev-setup\build\sandbox\prepare-sandbox.ps1</Command>
+    <Command>powershell.exe -NoProfile -ExecutionPolicy Bypass -NoExit -File C:\jahiz\build\sandbox\prepare-sandbox.ps1</Command>
   </LogonCommand>
 </Configuration>
 "@
 Set-Content -Path $wsb -Value $xml -Encoding UTF8
-Write-Host "Starting Windows Sandbox with $repo mapped read-only at C:\dev-setup ..." -ForegroundColor Cyan
+Write-Host "Starting Windows Sandbox with $repo mapped read-only at C:\jahiz ..." -ForegroundColor Cyan
 Start-Process -FilePath $wsb

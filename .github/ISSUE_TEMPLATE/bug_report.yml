@@ -1,19 +1,19 @@
 name: Bug report
-description: Something went wrong while running a dev-setup tool
+description: Something went wrong while running a jahiz tool
 labels: [bug]
 body:
   - type: dropdown
     id: tool
     attributes:
       label: Which tool?
-      options: [setup.ps1 (both), env (dev tools), editor (extensions + settings)]
+      options: [jahiz.ps1 (both), env (dev tools), editor (extensions + settings)]
     validations: { required: true }
   - type: input
     id: version
     attributes:
       label: Tool version
-      description: Output of `.\setup.ps1 -Version` (or the tool's own `-Version`)
-      placeholder: dev-setup 0.3.0
+      description: Output of `.\jahiz.ps1 -Version` (or the tool's own `-Version`)
+      placeholder: jahiz 0.3.0
     validations: { required: true }
   - type: input
     id: windows
@@ -32,5 +32,5 @@ body:
     id: log
     attributes:
       label: Log file
-      description: Attach or paste the newest log from `%LOCALAPPDATA%\dev-setup\` (env-*.log or install-*.log). It contains no passwords.
+      description: Attach or paste the newest log from `%LOCALAPPDATA%\jahiz\` (env-*.log or install-*.log). It contains no passwords.
       render: text

@@ -1,5 +1,5 @@
 <#
-  setup-dev-env.ps1  (dev-setup / env)
+  jahiz-env.ps1  (jahiz / env)
   Checks the development tools a Laravel + NestJS machine needs and installs
   the missing ones with winget, asking before each install.
 
@@ -23,7 +23,7 @@
 
   For every install it asks: latest version, or pick one from the list of available versions.
 
-  Run:  powershell -NoProfile -ExecutionPolicy Bypass -File .\setup-dev-env.ps1
+  Run:  powershell -NoProfile -ExecutionPolicy Bypass -File .\jahiz-env.ps1
   Options:
     -CheckOnly   report what is installed / missing, install nothing
     -DryRun      check that every package id in the catalogue still exists (winget, or the winget-pkgs
@@ -34,7 +34,7 @@
     -Version     print the version and exit
 
   Exit code: 0 when PHP and Node.js are available at the end, 1 otherwise.
-  Other tools (e.g. editor/setup-dev-extensions.ps1) call this script and read the exit code.
+  Other tools (e.g. editor/jahiz-editor.ps1) call this script and read the exit code.
 #>
 [CmdletBinding()]
 param(
@@ -47,12 +47,12 @@ param(
 
 # Bumped by build/bump-version.ps1; must match the git tag (vX.Y.Z) on release.
 $ScriptVersion = '0.3.0'
-if ($Version) { Write-Output "setup-dev-env $ScriptVersion"; return }
+if ($Version) { Write-Output "jahiz-env $ScriptVersion"; return }
 
 $ErrorActionPreference = 'Continue'
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
 
-$LogDir  = Join-Path $env:LOCALAPPDATA 'dev-setup'
+$LogDir  = Join-Path $env:LOCALAPPDATA 'jahiz'
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 $LogFile = Join-Path $LogDir ("env-{0:yyyyMMdd-HHmmss}.log" -f (Get-Date))
 # Keep the log folder small: this run + the 9 newest older logs of this tool
@@ -69,10 +69,10 @@ function Info($m) { Log "  [..]   $m" 'Gray' }
 function Warn($m) { Log "  [WARN] $m" 'Yellow' }
 function Err($m)  { Log "  [FAIL] $m" 'Red' }
 
-Log "dev-setup / env  v$ScriptVersion" 'Cyan'
+Log "jahiz / env  v$ScriptVersion" 'Cyan'
 
 # ---------------------------------------------------------------------------
-# Questions (same helpers as the other dev-setup tools; each tool is self-contained)
+# Questions (same helpers as the other jahiz tools; each tool is self-contained)
 # ---------------------------------------------------------------------------
 function Ask-YesNo([string]$Question, [bool]$Default = $true) {
     if ($Yes) { return $Default }
@@ -724,7 +724,7 @@ function Test-WingetIdExists([string]$Id) {
     # No winget (e.g. CI): look the manifest folder up in github.com/microsoft/winget-pkgs
     $parts = $Id.Split('.')
     $path = "manifests/$($parts[0].Substring(0,1).ToLower())/$($parts -join '/')"
-    $headers = @{ 'User-Agent' = 'dev-setup' }
+    $headers = @{ 'User-Agent' = 'jahiz' }
     if ($env:GITHUB_TOKEN) { $headers.Authorization = "Bearer $env:GITHUB_TOKEN" }
     try {
         $null = Invoke-WithRetry {

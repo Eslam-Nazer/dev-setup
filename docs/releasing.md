@@ -41,8 +41,8 @@ if there is no GitHub Release for that version yet, it:
 
 1. Fails if the tool scripts disagree on the version or the CHANGELOG has no section for it
 2. Runs PSScriptAnalyzer (errors only)
-3. Builds `dev-setup-<tool>-v0.2.0.zip` for each tool folder (script + its docs + README + CHANGELOG + LICENSE)
-4. Adds `setup.ps1` / `setup.bat` and writes `SHA256SUMS.txt` for every asset
+3. Builds `jahiz-<tool>-v0.2.0.zip` for each tool folder (script + its docs + README + CHANGELOG + LICENSE)
+4. Adds `jahiz.ps1` / `jahiz.bat` and writes `SHA256SUMS.txt` for every asset
 5. Creates the tag `v0.2.0` at that commit and publishes the GitHub Release with the zips,
    unversioned copies of each script, `SHA256SUMS.txt`, and the CHANGELOG section as notes
 
@@ -54,9 +54,9 @@ fix the problem, then push again or re-run the workflow.
 
 ## How people download it
 
-- Latest release page: `https://github.com/Eslam-Nazer/dev-setup/releases/latest`
+- Latest release page: `https://github.com/Eslam-Nazer/jahiz/releases/latest`
 - A fixed link to the newest script (never changes between versions):
-  `https://github.com/Eslam-Nazer/dev-setup/releases/latest/download/setup-dev-extensions.ps1`
-- A specific version: `https://github.com/Eslam-Nazer/dev-setup/releases/download/v0.1.0/dev-setup-editor-v0.1.0.zip`
+  `https://github.com/Eslam-Nazer/jahiz/releases/latest/download/jahiz-editor.ps1`
+- A specific version: `https://github.com/Eslam-Nazer/jahiz/releases/download/v0.1.0/jahiz-editor-v0.1.0.zip`
 
 These links only work once the repo is public, or for people who have access to it.

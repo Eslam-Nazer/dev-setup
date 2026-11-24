@@ -1,6 +1,6 @@
 # Customizing
 
-Everything you are likely to change is at the top of `editor/setup-dev-extensions.ps1`.
+Everything you are likely to change is at the top of `editor/jahiz-editor.ps1`.
 
 ## Add or change an extension: `$Catalog`
 

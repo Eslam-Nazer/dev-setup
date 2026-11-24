@@ -1,19 +1,21 @@
-# dev-setup
+# Jahiz
 
-[![Release](https://img.shields.io/github/v/release/Eslam-Nazer/dev-setup?sort=semver)](https://github.com/Eslam-Nazer/dev-setup/releases/latest)
-[![CI](https://github.com/Eslam-Nazer/dev-setup/actions/workflows/ci.yml/badge.svg)](https://github.com/Eslam-Nazer/dev-setup/actions/workflows/ci.yml)
-[![Catalog check](https://github.com/Eslam-Nazer/dev-setup/actions/workflows/catalog-check.yml/badge.svg)](https://github.com/Eslam-Nazer/dev-setup/actions/workflows/catalog-check.yml)
+[![Release](https://img.shields.io/github/v/release/Eslam-Nazer/jahiz?sort=semver)](https://github.com/Eslam-Nazer/jahiz/releases/latest)
+[![CI](https://github.com/Eslam-Nazer/jahiz/actions/workflows/ci.yml/badge.svg)](https://github.com/Eslam-Nazer/jahiz/actions/workflows/ci.yml)
+[![Catalog check](https://github.com/Eslam-Nazer/jahiz/actions/workflows/catalog-check.yml/badge.svg)](https://github.com/Eslam-Nazer/jahiz/actions/workflows/catalog-check.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+**Your Windows dev machine, ready.** *Jahiz* (جاهز) means "ready" in Arabic.
 
 Scripts to set up a Windows dev machine for **Laravel + NestJS** (PHP / TypeScript): dev tools, editors,
 databases, editor extensions and settings. It checks what you already have, asks before every install,
 and stays light on your machine.
 
-![Example run of setup.ps1 (illustrative, shortened)](docs/images/example-run.svg)
+![Example run of jahiz.ps1 (illustrative, shortened)](docs/images/example-run.svg)
 
 | Tool | What it does |
 |---|---|
-| [`setup.ps1`](setup.ps1) | **One command**: runs `env`, then `editor` |
+| [`jahiz.ps1`](jahiz.ps1) | **One command**: runs `env`, then `editor` |
 | [`env/`](env/) | Checks and installs dev tools: Herd / Laragon / official PHP, Composer, Git, Node.js, NestJS CLI, Docker, editors (PhpStorm, VS Code, Cursor), databases (PostgreSQL, MySQL, MariaDB, Redis, MongoDB) and DB GUI clients |
 | [`editor/`](editor/) | Cursor / VS Code extensions and settings for Laravel + NestJS, with an optional PhpStorm feel |
 
@@ -22,33 +24,33 @@ and stays light on your machine.
 **One command** (PowerShell, Windows 10/11):
 
 ```powershell
-irm https://github.com/Eslam-Nazer/dev-setup/releases/latest/download/setup.ps1 -OutFile setup.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File .\setup.ps1
+irm https://github.com/Eslam-Nazer/jahiz/releases/latest/download/jahiz.ps1 -OutFile jahiz.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\jahiz.ps1
 ```
 
-`setup.ps1` downloads the two tools from the same release and **verifies them against `SHA256SUMS.txt`**
+`jahiz.ps1` downloads the two tools from the same release and **verifies them against `SHA256SUMS.txt`**
 before running them. Press Enter to accept each default.
 
 Try it without changing anything first:
 
 ```powershell
-.\setup.ps1 -DryRun -Target both     # are all packages and extensions available? installs nothing
+.\jahiz.ps1 -DryRun -Target both     # are all packages and extensions available? installs nothing
 ```
 
 Other ways:
 
-- **Zip:** download `dev-setup-env-vX.Y.Z.zip` / `dev-setup-editor-vX.Y.Z.zip` from the
-  [latest release](https://github.com/Eslam-Nazer/dev-setup/releases/latest), unzip, double-click the `.bat`.
-- **Clone:** `git clone https://github.com/Eslam-Nazer/dev-setup` then double-click `setup.bat`.
-- **One tool only:** `releases/latest/download/setup-dev-env.ps1` or `.../setup-dev-extensions.ps1`.
+- **Zip:** download `jahiz-env-vX.Y.Z.zip` / `jahiz-editor-vX.Y.Z.zip` from the
+  [latest release](https://github.com/Eslam-Nazer/jahiz/releases/latest), unzip, double-click the `.bat`.
+- **Clone:** `git clone https://github.com/Eslam-Nazer/jahiz` then double-click `jahiz.bat`.
+- **One tool only:** `releases/latest/download/jahiz-env.ps1` or `.../jahiz-editor.ps1`.
 
 Check a download yourself:
 
 ```powershell
-(Get-FileHash .\setup.ps1 -Algorithm SHA256).Hash   # compare with SHA256SUMS.txt in the release
+(Get-FileHash .\jahiz.ps1 -Algorithm SHA256).Hash   # compare with SHA256SUMS.txt in the release
 ```
 
-| Option (`setup.ps1`) | Meaning |
+| Option (`jahiz.ps1`) | Meaning |
 |---|---|
 | `-DryRun` | Only check availability; install and change nothing |
 | `-Yes` | Accept every default (optional heavy things like Docker, editors and databases stay off) |
@@ -67,7 +69,7 @@ Checks Herd / Laragon / PHP, Composer, Git, Node.js, NestJS CLI and Docker Deskt
 (with winget), asking before each install.
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\env\setup-dev-env.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\env\jahiz-env.ps1
 ```
 
 Use `-CheckOnly` to only report, `-DryRun` to check that every package id is still available.
@@ -80,14 +82,14 @@ Full details: [docs/env/usage.md](docs/env/usage.md).
 ### Quick start (from a clone)
 
 1. Clone this repo on Windows.
-2. Double-click `editor\setup-dev-extensions.bat`.
+2. Double-click `editor\jahiz-editor.bat`.
 3. Answer the questions (press Enter for the default).
 4. Restart the editor.
 
 Or from PowerShell:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\editor\setup-dev-extensions.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\editor\jahiz-editor.ps1
 ```
 
 ### What it asks
@@ -151,7 +153,7 @@ Light on the machine first, then on the wallet.
   the question defaults to No and `-Yes` skips them.
 - Nothing is downloaded before you agree; checks use small API calls.
 - Already-installed tools and extensions are skipped, so re-runs are quick.
-- Housekeeping: only the 10 newest logs per tool (in `%LOCALAPPDATA%\dev-setup`) and the 5 newest `settings.json` / `keybindings.json` backups are kept.
+- Housekeeping: only the 10 newest logs per tool (in `%LOCALAPPDATA%\jahiz`) and the 5 newest `settings.json` / `keybindings.json` backups are kept.
 
 ## Contributing and security
 

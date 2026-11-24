@@ -83,19 +83,19 @@ jobs:
             $_.Name -notin 'docs', 'build', '.github', 'dist' -and (Get-ChildItem $_.FullName -Filter *.ps1)
           }
           foreach ($t in $tools) {
-            $stage = "dist/stage/dev-setup-$($t.Name)"
+            $stage = "dist/stage/jahiz-$($t.Name)"
             New-Item -ItemType Directory -Force $stage | Out-Null
             Copy-Item "$($t.FullName)/*" $stage -Recurse
             if (Test-Path "docs/$($t.Name)") { Copy-Item "docs/$($t.Name)" "$stage/docs" -Recurse }
             Copy-Item README.md, CHANGELOG.md $stage
             if (Test-Path LICENSE) { Copy-Item LICENSE $stage }
-            Compress-Archive -Path "$stage/*" -DestinationPath "dist/dev-setup-$($t.Name)-$v.zip"
+            Compress-Archive -Path "$stage/*" -DestinationPath "dist/jahiz-$($t.Name)-$v.zip"
             # Unversioned copies so .../releases/latest/download/<file> always works
             Get-ChildItem $t.FullName -File | Where-Object { $_.Extension -in '.ps1', '.bat' } | Copy-Item -Destination dist/
           }
           # One-command entry point at the repo root
-          Copy-Item setup.ps1, setup.bat -Destination dist/
-          # Checksums for everything people download (setup.ps1 verifies the tools with this file)
+          Copy-Item jahiz.ps1, jahiz.bat -Destination dist/
+          # Checksums for everything people download (jahiz.ps1 verifies the tools with this file)
           Get-ChildItem dist -File | Where-Object { $_.Extension -in '.zip', '.ps1', '.bat' } | Sort-Object Name | ForEach-Object {
             "{0}  {1}" -f (Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLower(), $_.Name
           } | Set-Content dist/SHA256SUMS.txt -Encoding ascii
@@ -128,4 +128,4 @@ jobs:
           $extra = @()
           if ($tag -match '-') { $extra += '--prerelease' }
           # Creates the tag at this commit if it does not exist yet
-          gh release create $tag @files --target "${{ github.sha }}" --title "dev-setup $tag" --notes-file dist/notes.md @extra
+          gh release create $tag @files --target "${{ github.sha }}" --title "jahiz $tag" --notes-file dist/notes.md @extra

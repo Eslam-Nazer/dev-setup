@@ -1,5 +1,5 @@
 <#
-  setup-dev-extensions.ps1
+  jahiz-editor.ps1
   Laravel + NestJS (PHP / TypeScript) editor setup for Cursor or VS Code.
 
   Questions it asks (press Enter for the default):
@@ -22,7 +22,7 @@
   - Double Shift = Search Everywhere, JetBrains-style file icons, breadcrumbs nav bar, "new file at path"
   - Backs up settings.json / keybindings.json before touching them
 
-  Run:  powershell -NoProfile -ExecutionPolicy Bypass -File .\setup-dev-extensions.ps1
+  Run:  powershell -NoProfile -ExecutionPolicy Bypass -File .\jahiz-editor.ps1
   Optional: -Target cursor|code|both  -Source phpstorm|vscode|recommended|author  -Yes (accept all defaults)
             -MaxRetries 8  -SkipSettings  -SkipEnvCheck  -Version
             -DryRun   check that every extension exists and is not deprecated; installs and changes nothing
@@ -31,7 +31,7 @@
   It also asks whether to add a database extension (Database Client, SQLTools, MongoDB); pick any or none.
 
   Before installing, it checks that PHP and Node.js exist. If not, it offers to run
-  env/setup-dev-env.ps1 (the dev-setup "env" tool) first, then continues.
+  env/jahiz-env.ps1 (the jahiz "env" tool) first, then continues.
 #>
 [CmdletBinding()]
 param(
@@ -48,13 +48,13 @@ param(
 
 # Bumped by build/bump-version.ps1; must match the git tag (vX.Y.Z) on release.
 $ScriptVersion = '0.3.0'
-if ($Version) { Write-Output "setup-dev-extensions $ScriptVersion"; return }
+if ($Version) { Write-Output "jahiz-editor $ScriptVersion"; return }
 if ($Source -eq 'builtin') { $Source = 'author' }   # old name
 
 $ErrorActionPreference = 'Continue'
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
 
-$LogDir  = Join-Path $env:LOCALAPPDATA 'dev-setup'
+$LogDir  = Join-Path $env:LOCALAPPDATA 'jahiz'
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 $LogFile = Join-Path $LogDir ("install-{0:yyyyMMdd-HHmmss}.log" -f (Get-Date))
 # Keep the log folder small: this run + the 9 newest older logs of this tool
@@ -71,7 +71,7 @@ function Info($m) { Log "  [..]   $m" 'Gray' }
 function Warn($m) { Log "  [WARN] $m" 'Yellow' }
 function Err($m)  { Log "  [FAIL] $m" 'Red' }
 
-Log "dev-setup / editor  v$ScriptVersion" 'Cyan'
+Log "jahiz / editor  v$ScriptVersion" 'Cyan'
 
 # ---------------------------------------------------------------------------
 # Questions
@@ -660,12 +660,12 @@ function Update-SessionPath {
 function Find-EnvScript {
     # 1) next to this script in a clone (editor/ -> ../env/), 2) same folder, 3) download the latest release
     if ($PSScriptRoot) {
-        foreach ($p in @((Join-Path $PSScriptRoot '..\env\setup-dev-env.ps1'), (Join-Path $PSScriptRoot 'setup-dev-env.ps1'))) {
+        foreach ($p in @((Join-Path $PSScriptRoot '..\env\jahiz-env.ps1'), (Join-Path $PSScriptRoot 'jahiz-env.ps1'))) {
             if (Test-Path $p) { return (Resolve-Path $p).Path }
         }
     }
-    $url = 'https://github.com/Eslam-Nazer/dev-setup/releases/latest/download/setup-dev-env.ps1'
-    $dest = Join-Path $env:TEMP 'setup-dev-env.ps1'
+    $url = 'https://github.com/Eslam-Nazer/jahiz/releases/latest/download/jahiz-env.ps1'
+    $dest = Join-Path $env:TEMP 'jahiz-env.ps1'
     if (-not (Ask-YesNo "The env tool is not next to this script. Download it from the latest release?" $true)) { return $null }
     try {
         Invoke-WithRetry { Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing -TimeoutSec 60 -ErrorAction Stop } 'Download env tool' 'github.com'
@@ -693,7 +693,7 @@ if (-not $SkipEnvCheck) {
                 else { Warn 'Some dev tools are still missing; continuing with the editor setup anyway.' }
             }
         } else {
-            Info 'Skipped the dev tools check (run env\setup-dev-env.ps1 later, or use -SkipEnvCheck).'
+            Info 'Skipped the dev tools check (run env\jahiz-env.ps1 later, or use -SkipEnvCheck).'
         }
     }
 }

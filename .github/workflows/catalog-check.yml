@@ -23,7 +23,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          ./env/setup-dev-env.ps1 -DryRun -Yes *>&1 | Tee-Object -FilePath env.log
+          ./env/jahiz-env.ps1 -DryRun -Yes *>&1 | Tee-Object -FilePath env.log
           "code=$LASTEXITCODE" >> $env:GITHUB_OUTPUT
           exit 0
 
@@ -31,7 +31,7 @@ jobs:
         id: editor
         shell: pwsh
         run: |
-          ./editor/setup-dev-extensions.ps1 -DryRun -Target both -Yes -SkipEnvCheck *>&1 | Tee-Object -FilePath editor.log
+          ./editor/jahiz-editor.ps1 -DryRun -Target both -Yes -SkipEnvCheck *>&1 | Tee-Object -FilePath editor.log
           "code=$LASTEXITCODE" >> $env:GITHUB_OUTPUT
           exit 0
 
@@ -49,7 +49,7 @@ jobs:
           $fails = @(Select-String -Path env.log, editor.log -Pattern '\[FAIL\]|DEPRECATED' | ForEach-Object { $_.Line.Trim() })
           $body = "The weekly catalog check found packages or extensions that are missing or deprecated.`n`n" +
                   "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`n`n" +
-                  '```' + "`n" + ($fails -join "`n") + "`n" + '```' + "`n`nFix the ids in env/setup-dev-env.ps1 or editor/setup-dev-extensions.ps1."
+                  '```' + "`n" + ($fails -join "`n") + "`n" + '```' + "`n`nFix the ids in env/jahiz-env.ps1 or editor/jahiz-editor.ps1."
           $title = 'Catalog check: missing or deprecated packages'
           $open = gh issue list -R '${{ github.repository }}' --state open --search "$title in:title" --json number --jq '.[0].number'
           if ($open) { gh issue comment $open -R '${{ github.repository }}' --body $body }

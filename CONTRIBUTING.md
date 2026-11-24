@@ -4,7 +4,7 @@ Thanks for helping. This repo is a set of PowerShell scripts that set up a Windo
 
 ## Report a bug
 
-Open an issue with the **bug report template** and attach the log from `%LOCALAPPDATA%\dev-setup` (the newest `env-*.log` / `install-*.log`). Logs contain no secrets, but have a quick look before attaching.
+Open an issue with the **bug report template** and attach the log from `%LOCALAPPDATA%\jahiz` (the newest `env-*.log` / `install-*.log`). Logs contain no secrets, but have a quick look before attaching.
 
 ## Propose a package or extension
 
@@ -28,7 +28,7 @@ Full table: [docs/architecture.md](docs/architecture.md#conventions-every-tool-f
 - **Ask before installing:** every question has a default (Enter accepts it). Nothing is installed without consent, except with `-Yes`.
 - **Flags:** `-Yes` accepts defaults; `-DryRun` checks availability and changes nothing; `-Version` prints the version.
 - **`$ScriptVersion`:** one `$ScriptVersion = 'X.Y.Z'` line near the top, the same value in every tool (`build/bump-version.ps1` updates them).
-- **Logs:** written to `%LOCALAPPDATA%\dev-setup\`; only the newest are kept.
+- **Logs:** written to `%LOCALAPPDATA%\jahiz\`; only the newest are kept.
 - **Light on the machine:** heavy optional tools default to No; verify cheaply (files/services, not extra processes).
 - **Self-contained scripts:** copy the shared helpers rather than depending on another file.
 
@@ -44,8 +44,8 @@ Full table: [docs/architecture.md](docs/architecture.md#conventions-every-tool-f
 Run, from the repo root:
 
 ```powershell
-.\env\setup-dev-env.ps1 -DryRun
-.\editor\setup-dev-extensions.ps1 -DryRun -Target both
+.\env\jahiz-env.ps1 -DryRun
+.\editor\jahiz-editor.ps1 -DryRun -Target both
 ```
 
 If you can, also run the Windows Sandbox checklist in [docs/testing.md](docs/testing.md).

@@ -5,7 +5,7 @@
   (Microsoft.WinGet.Client module -> Repair-WinGetPackageManager), then shows the test steps.
 #>
 $ErrorActionPreference = 'Stop'
-$Host.UI.RawUI.WindowTitle = 'dev-setup test sandbox'
+$Host.UI.RawUI.WindowTitle = 'jahiz test sandbox'
 Write-Host 'Preparing the sandbox: installing winget (2-5 minutes)...' -ForegroundColor Cyan
 try {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -24,9 +24,9 @@ try {
 Write-Host @'
 
 Test steps (see docs/testing.md for the full checklist):
-  1. Check only:       C:\dev-setup\env\setup-dev-env.ps1 -CheckOnly
-  2. Dry run:          C:\dev-setup\setup.ps1 -DryRun -Target both
-  3. Full run:         C:\dev-setup\setup.ps1
-  4. Restore settings: C:\dev-setup\editor\setup-dev-extensions.ps1 -Restore -Target code
-Logs: %LOCALAPPDATA%\dev-setup\   (copy them out before closing; the sandbox is wiped on close)
+  1. Check only:       C:\jahiz\env\jahiz-env.ps1 -CheckOnly
+  2. Dry run:          C:\jahiz\jahiz.ps1 -DryRun -Target both
+  3. Full run:         C:\jahiz\jahiz.ps1
+  4. Restore settings: C:\jahiz\editor\jahiz-editor.ps1 -Restore -Target code
+Logs: %LOCALAPPDATA%\jahiz\   (copy them out before closing; the sandbox is wiped on close)
 '@ -ForegroundColor Cyan
